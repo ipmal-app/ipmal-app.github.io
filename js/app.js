@@ -326,6 +326,7 @@
     const card = $('#card');
     const done = () => { S.busy = false; S.idx++; S.flipped = false; S.anim = true; drawStudy(true); };
     if (FX.reduced() || !card) return done();
+    if (!swipeDx && !swipeUp) { if (g === 2) swipeDx = 1; else if (g === 0) swipeDx = -1; else swipeUp = true; }
     if (swipeUp) {
       card.style.transition = 'transform .28s ease-in, opacity .28s';
       card.style.transform = 'translateY(-420px) scale(.9)'; card.style.opacity = '0';
@@ -333,7 +334,7 @@
       card.style.transition = 'transform .28s ease-in, opacity .28s';
       card.style.transform = `translateX(${Math.sign(swipeDx) * 520}px) rotate(${Math.sign(swipeDx) * 18}deg)`;
       card.style.opacity = '0';
-    } else card.classList.add(g === 2 ? 'out-good' : g === 0 ? 'out-bad' : 'out-mid');
+    }
     setTimeout(done, 280);
   }
   document.addEventListener('keydown', e => {
