@@ -613,3 +613,5 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .priv-body table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13.5px; }
 .priv-body th, .priv-body td { border: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
 .priv-body th { background: var(--p-blue); white-space: nowrap; }
+.priv-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.priv-langs { display: flex; flex-wrap: wrap; gap: 6px; }

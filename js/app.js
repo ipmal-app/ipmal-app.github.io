@@ -1059,7 +1059,7 @@
     $('#sProxy').onchange = e => { s.proxy = e.target.value.trim(); save(); toast(s.proxy ? t('proxySaved') : t('proxyDel')); R.setup(); };
     $$('#view-setup [data-test]').forEach(b => b.onclick = () => say(PHRASES[1], b.dataset.test));
     $('#obReplay').onclick = () => Onboard.open();
-    $('#privLink').onclick = () => { privFromApp = true; };
+    $('#privLink').onclick = () => { privFromApp = true; privLang = ''; };
     $('#bkCopy').onclick = () => {
       const code = JSON.stringify(st);
       $('#bkText').value = code;
@@ -1094,10 +1094,13 @@
 
   /* ---------- 개인정보처리방침 (앱 안 화면 — 휴대폰 뒤로가기로 설정에 복귀) ---------- */
   let privFromApp = false, privDoc = null;
+  let privLang = '';
   R.privacy = async function () {
-    const el = $('#view-privacy'), lang = L().ui || 'ko';
+    const el = $('#view-privacy'), lang = privLang || L().ui || I18N.browserLang();
     const back = `<button class="btn" type="button" data-privback>← ${t('tabSetup')}</button>`;
-    el.innerHTML = `<div class="panel priv"><div class="row gap">${back}</div><div class="priv-body"><p class="note">…</p></div></div>`;
+    const langs = `<div class="priv-langs">${I18N.ORDER.map(k => `<button type="button" class="chip ${k === lang ? 'on' : ''}" data-plang="${k}">${LANGS[k].flag} ${LANGS[k].self}</button>`).join('')}</div>`;
+    el.innerHTML = `<div class="panel priv"><div class="priv-top">${back}${langs}</div><div class="priv-body"><p class="note">…</p></div></div>`;
+    el.querySelectorAll('[data-plang]').forEach(c => c.onclick = () => { privLang = c.dataset.plang; R.privacy(); });
     const bind = () => el.querySelectorAll('[data-privback]').forEach(b => b.onclick = () => {
       if (privFromApp) { privFromApp = false; history.back(); } else location.hash = '#setup';
     });
@@ -1109,7 +1112,7 @@
       el.querySelector('.priv-body').replaceChildren(art);
       el.querySelector('.panel').insertAdjacentHTML('beforeend', `<div class="row gap" style="margin-top:16px">${back}</div>`);
       bind();
-      window.scrollTo(0, 0);
+      if (!privLang) window.scrollTo(0, 0);
     } catch (e) {
       el.querySelector('.priv-body').innerHTML = `<p class="red-t">${esc(String(e && e.message || e))}</p><p><a href="privacy.html?lang=${esc(lang)}">${t('privacy')}</a></p>`;
     }
