@@ -603,3 +603,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 @keyframes obSlide { from { opacity: 0; transform: translateX(16px); } }
 @keyframes obWiggle { 0%, 70%, 100% { transform: none; } 78% { transform: translateX(-10px) rotate(-4deg); } 86% { transform: translateX(10px) rotate(4deg); } 93% { transform: translateY(-6px); } }
 @media (prefers-reduced-motion: reduce) { .ob-wrap, .ob-box, .ob-body, .ob-card { animation: none !important; } }
+
+/* 개인정보처리방침 (앱 안 화면) */
+.priv-body h1 { font-size: 21px; margin: 12px 0 4px; }
+.priv-body h2 { font-size: 16px; margin: 20px 0 6px; padding-left: 9px; border-left: 4px solid #9DB8D6; }
+.priv-body .meta, .priv-body .note { color: var(--sub); font-size: 12.5px; word-break: break-all; }
+.priv-body .sum { background: var(--p-blue2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.priv-body .sum b { color: var(--blue); margin-right: 6px; }
+.priv-body table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13.5px; }
+.priv-body th, .priv-body td { border: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+.priv-body th { background: var(--p-blue); white-space: nowrap; }

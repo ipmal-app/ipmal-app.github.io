@@ -178,12 +178,14 @@
   }
 
   /* ---------- 라우팅 ---------- */
-  const VIEWS = ['study', 'quiz', 'speak', 'words', 'stats', 'setup'];
+  const VIEWS = ['study', 'quiz', 'speak', 'words', 'stats', 'setup', 'privacy'];
   function route() {
     let v = (location.hash || '').slice(1);
     if (!VIEWS.includes(v)) v = 'study';
+    if (!$('#view-privacy')) { const sec = document.createElement('section'); sec.id = 'view-privacy'; sec.className = 'view'; $('main').appendChild(sec); }
     $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
-    $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.view === v));
+    const tab = v === 'privacy' ? 'setup' : v;
+    $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.view === tab));
     TTS.stop(); Translator.stopListen();
     R[v]();
   }
@@ -1032,7 +1034,7 @@
       <div class="panel">
         <h3>${t('aboutTitle')}</h3>
         <p class="note">${t('privacyNote')}</p>
-        <div class="row gap wrap"><a class="btn" href="privacy.html?lang=${esc(s.ui)}" target="_blank" rel="noopener">🔒 ${t('privacy')}</a>
+        <div class="row gap wrap"><a class="btn" href="#privacy" id="privLink">🔒 ${t('privacy')}</a>
           <button class="btn" id="obReplay" type="button">👋 ${t('obReplay')}</button></div>
         <p class="note">${t('appVer')} ${APP_VER}</p>
       </div>`;
@@ -1057,6 +1059,7 @@
     $('#sProxy').onchange = e => { s.proxy = e.target.value.trim(); save(); toast(s.proxy ? t('proxySaved') : t('proxyDel')); R.setup(); };
     $$('#view-setup [data-test]').forEach(b => b.onclick = () => say(PHRASES[1], b.dataset.test));
     $('#obReplay').onclick = () => Onboard.open();
+    $('#privLink').onclick = () => { privFromApp = true; };
     $('#bkCopy').onclick = () => {
       const code = JSON.stringify(st);
       $('#bkText').value = code;
@@ -1088,6 +1091,29 @@
       prompt: async () => { if (!deferred) return; deferred.prompt(); try { await deferred.userChoice; } catch (e) {} deferred = null; }
     };
   })();
+
+  /* ---------- 개인정보처리방침 (앱 안 화면 — 휴대폰 뒤로가기로 설정에 복귀) ---------- */
+  let privFromApp = false, privDoc = null;
+  R.privacy = async function () {
+    const el = $('#view-privacy'), lang = L().ui || 'ko';
+    const back = `<button class="btn" type="button" data-privback>← ${t('tabSetup')}</button>`;
+    el.innerHTML = `<div class="panel priv"><div class="row gap">${back}</div><div class="priv-body"><p class="note">…</p></div></div>`;
+    const bind = () => el.querySelectorAll('[data-privback]').forEach(b => b.onclick = () => {
+      if (privFromApp) { privFromApp = false; history.back(); } else location.hash = '#setup';
+    });
+    bind();
+    try {
+      if (!privDoc) privDoc = new DOMParser().parseFromString(await (await fetch('privacy.html')).text(), 'text/html');
+      const a = privDoc.querySelector(`article[data-l="${lang}"]`) || privDoc.querySelector('article[data-l="ko"]');
+      const art = a.cloneNode(true); art.hidden = false;
+      el.querySelector('.priv-body').replaceChildren(art);
+      el.querySelector('.panel').insertAdjacentHTML('beforeend', `<div class="row gap" style="margin-top:16px">${back}</div>`);
+      bind();
+      window.scrollTo(0, 0);
+    } catch (e) {
+      el.querySelector('.priv-body').innerHTML = `<p class="red-t">${esc(String(e && e.message || e))}</p><p><a href="privacy.html?lang=${esc(lang)}">${t('privacy')}</a></p>`;
+    }
+  };
 
   /* ---------- 첫 실행 안내 (언어 → 카드 사용법 → 하루 목표) ---------- */
   const APP_VER = '2026.11.10';
@@ -1153,21 +1179,25 @@
       el = document.createElement('div'); el.className = 'ob-wrap'; el.id = 'onboard';
       document.body.appendChild(el); document.body.classList.add('ob-open');
       document.addEventListener('keydown', key, true);
+      try { history.pushState({ ob: 1 }, ''); } catch (e) {}
       draw();
     }
-    function close(started) {
+    function close(started, fromPop) {
       if (!el) return;
       const s = L(); s.onboarded = true; save();
       document.removeEventListener('keydown', key, true);
       const node = el; el = null;
       node.classList.add('out'); document.body.classList.remove('ob-open');
       setTimeout(() => node.remove(), FX.reduced() ? 0 : 220);
-      if (started) {
+      const go = () => {
+        if (!started) return;
         S = null;
         if (location.hash !== '#study') location.hash = '#study'; else route();
         toast(t('obDone')); FX.confetti(0.5);
-      }
+      };
+      if (!fromPop && history.state && history.state.ob) { history.back(); setTimeout(go, 120); } else go();
     }
+    window.addEventListener('popstate', () => { if (el) close(false, true); });
     return { open, isOpen: () => !!el };
   })();
 
