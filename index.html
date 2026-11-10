@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Google 번역 음성(베트남어)이 출처 헤더로 차단되지 않도록 -->
+<meta name="referrer" content="no-referrer">
+<title>입말 Ipmal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+SC:wght@400;500&family=Noto+Sans+JP:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#D6E4F0">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="입말">
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <div class="brand"><img class="logo" src="icons/icon.svg" alt=""><span id="appTitle">입말</span></div>
+    <label class="ui-lang"><span class="globe">🌐</span><span id="uiLabel">화면 언어</span>
+      <select id="uiLang" aria-label="Display language"></select></label>
+  </div>
+  <div class="sel-row">
+    <span class="sel-label tgt" id="tgtLabel">학습 언어</span>
+    <div class="chip-scroll" id="tgtChips"></div>
+  </div>
+  <div class="sel-row">
+    <span class="sel-label nat" id="natLabel">뜻 언어</span>
+    <div class="chip-scroll" id="natChips"></div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <a href="#study" data-view="study"><i>🃏</i><span></span></a>
+  <a href="#quiz" data-view="quiz"><i>✏️</i><span></span></a>
+  <a href="#speak" data-view="speak"><i>🎤</i><span></span></a>
+  <a href="#words" data-view="words"><i>📖</i><span></span></a>
+  <a href="#stats" data-view="stats"><i>📊</i><span></span></a>
+  <a href="#setup" data-view="setup"><i>⚙️</i><span></span></a>
+</nav>
+
+<main>
+  <section id="view-study" class="view"></section>
+  <section id="view-quiz" class="view"></section>
+  <section id="view-speak" class="view"></section>
+  <section id="view-words" class="view"></section>
+  <section id="view-stats" class="view"></section>
+  <section id="view-setup" class="view"></section>
+</main>
+
+<footer class="foot" id="foot"></footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/i18n.js"></script>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/tts.js"></script>
+<script src="js/translate.js"></script>
+<script src="js/compare.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/mascot.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
