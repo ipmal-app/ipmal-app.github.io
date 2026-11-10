@@ -287,6 +287,9 @@ const I18N = (() => {
     eBlocked: ['{src} 재생 차단: {m}', '{src} bị chặn phát: {m}', '{src} playback blocked: {m}', '{src} 播放被阻止：{m}', '{src} 再生ブロック：{m}'],
     eAll: ['베트남어 음성 {n}개 경로 모두 실패 — {m}', 'Tất cả {n} cách phát tiếng Việt đều thất bại — {m}', 'All {n} Vietnamese audio routes failed — {m}', '越南语语音 {n} 种方式全部失败 — {m}', 'ベトナム語音声{n}経路すべて失敗 — {m}'],
 
+    offAudio: ['오프라인 음성 (기본 문장)', 'Âm thanh ngoại tuyến (câu cơ bản)', 'Offline audio (built-in phrases)', '离线语音（基本句子）', 'オフライン音声（基本文）'],
+    offAudioBtn: ['음성 다시 받기', 'Tải lại âm thanh', 'Download audio again', '重新下载语音', '音声を再取得'],
+    offAudioDone: ['오프라인 음성 저장 완료', 'Đã lưu âm thanh ngoại tuyến', 'Offline audio saved', '离线语音已保存', 'オフライン音声を保存しました'],
     /* 첫 실행 안내 · 정보 */
     obHello: ['입말에 오신 걸 환영해요!', 'Chào mừng bạn đến với Ipmal!', 'Welcome to Ipmal!', '欢迎来到 Ipmal！', 'Ipmalへようこそ！'],
     obLangDesc: ['어떤 말을 배울지 골라 주세요. 나중에 위쪽에서 언제든 바꿀 수 있어요.', 'Chọn ngôn ngữ bạn muốn học. Bạn có thể đổi bất cứ lúc nào ở phía trên.', 'Pick what you want to learn. You can change it anytime at the top.', '请选择要学习的语言，之后随时可在上方更改。', '学ぶ言語を選んでください。あとで上部からいつでも変えられます。'],

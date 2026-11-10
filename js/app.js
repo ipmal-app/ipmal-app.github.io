@@ -1016,6 +1016,8 @@
         <h3>${t('dataSrc')}</h3>
         <p>${SRC.kind === 'sheet' ? `<b class="blue-t">${t('srcSheet', { n: SRC.n, t: esc(SRC.at ? new Date(SRC.at).toLocaleString() : '-') })}</b>` : `<b class="red-t">${t('srcBuiltin', { n: SRC.n })}</b>`}</p>
         <button class="btn" id="phrRefresh" type="button">🔄 ${t('refresh')}</button>
+        <p class="note" id="offAudio">${t('offAudio')}: …</p>
+        <button class="btn" id="offAudioBtn" type="button">⬇ ${t('offAudioBtn')}</button>
       </div>
       <div class="panel">
         <h3>${t('install')}</h3>
@@ -1059,6 +1061,9 @@
     $('#sProxy').onchange = e => { s.proxy = e.target.value.trim(); save(); toast(s.proxy ? t('proxySaved') : t('proxyDel')); R.setup(); };
     $$('#view-setup [data-test]').forEach(b => b.onclick = () => say(PHRASES[1], b.dataset.test));
     $('#obReplay').onclick = () => Onboard.open();
+    const showOff = () => TTS.offlineStatus().then(o => { const el = $('#offAudio'); if (el) el.innerHTML = `${t('offAudio')}: ` + I18N.ORDER.map(k => `${LANGS[k].flag}${o[k] ? '<b class="blue-t">✓</b>' : '<b class="red-t">✗</b>'}`).join(' '); });
+    showOff();
+    $('#offAudioBtn').onclick = async e => { const b = e.currentTarget; b.disabled = true; await TTS.downloadAll(true); b.disabled = false; showOff(); toast(t('offAudioDone')); };
     $('#privLink').onclick = () => { privFromApp = true; privLang = ''; };
     $('#bkCopy').onclick = () => {
       const code = JSON.stringify(st);
@@ -1208,7 +1213,7 @@
   drawChrome();
   route();
   fetchPhrases(false);
-  setTimeout(() => TTS.warm(L().target), 2500);   // 학습 언어 기본 음성 묶음 미리 받기
+  setTimeout(() => Promise.resolve(TTS.warm(L().target)).then(() => TTS.downloadAll(false)), 2500);   // 기본 문장 음성 5개 언어 모두 기기에 저장 (오프라인 재생)
   if (Store.imported() === 'ok') { toast(t('migOk')); setTimeout(() => FX.confetti(0.5), 300); }
   else if (Store.imported() === 'skip') toast(t('migSkip'));
   else if (Store.imported() === 'fail') toast(t('migFail'), 'err');

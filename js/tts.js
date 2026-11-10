@@ -115,10 +115,45 @@ const TTS = (() => {
   /* 기본 문장 음성 묶음 (audio/<언어>.json — 사이트에 미리 올린 MP3, GAS 호출 없이 즉시 재생)
    * 문장 글자가 같을 때만 사용 → 시트에서 문장을 고치면 자동으로 기존 방식(GAS)으로 재생 */
   const BUNDLE = {}, BREADY = {};
+  const BCACHE = 'ipmal-audio-v1', ALL = ['ko', 'vi', 'en', 'zh', 'ja'];
+  const burl = lang => new URL('audio/' + lang + '.json', location.href).href;
+  /* 기기 저장소(Cache Storage)에서 먼저 찾고, 없으면 받아서 저장 → 인터넷이 없어도 재생 */
+  async function loadBundle(lang) {
+    try {
+      if ('caches' in window) {
+        const c = await caches.open(BCACHE); const hit = await c.match(burl(lang));
+        if (hit) return await hit.json();
+        const r = await fetch(burl(lang), { cache: 'no-cache' });
+        if (!r.ok) return null;
+        await c.put(burl(lang), r.clone());
+        return await r.json();
+      }
+      const r = await fetch(burl(lang)); return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  }
   function bundle(lang) {
-    if (!(lang in BUNDLE)) BUNDLE[lang] = fetch('audio/' + lang + '.json').then(r => r.ok ? r.json() : null).catch(() => null)
-      .then(o => { BREADY[lang] = o || false; return o; });
+    if (!(lang in BUNDLE)) BUNDLE[lang] = loadBundle(lang).then(o => { BREADY[lang] = o || false; return o; });
     return BUNDLE[lang];
+  }
+  /* 처음 실행 때 5개 언어 음성을 모두 기기에 저장 (이후 하루 1번 새 버전만 확인 — 바뀐 게 없으면 거의 0 데이터) */
+  async function downloadAll(force) {
+    if (!('caches' in window) || !navigator.onLine) return;
+    let last = 0; try { last = +localStorage.getItem('ipmal_audio_at') || 0; } catch (e) {}
+    const c = await caches.open(BCACHE);
+    for (const l of ALL) {
+      const has = await c.match(burl(l));
+      if (has && !force && (!last || Date.now() - last < 86400000)) continue;   // 방금 받은 것·하루 안에 확인한 것은 건너뜀
+      try {
+        const r = await fetch(burl(l), { cache: 'no-cache' });
+        if (r.ok) { await c.put(burl(l), r); if (BUNDLE[l]) { delete BUNDLE[l]; delete BREADY[l]; } }
+      } catch (e) {}
+    }
+    try { localStorage.setItem('ipmal_audio_at', String(Date.now())); } catch (e) {}
+  }
+  async function offlineStatus() {
+    const out = {};
+    try { const c = await caches.open(BCACHE); for (const l of ALL) out[l] = !!(await c.match(burl(l))); } catch (e) { ALL.forEach(l => out[l] = false); }
+    return out;
   }
   /* 묶음이 아직 받는 중이면 최대 1.5초만 기다리고, 늦으면 이번 한 번은 GAS로 재생 (첫 재생이 다운로드에 묶이지 않게) */
   async function fromBundle(text, lang) {
@@ -128,9 +163,9 @@ const TTS = (() => {
   }
   /* 앱 시작 후 학습 언어 묶음을 미리 받아 둠 (기기 음성으로 읽는 언어는 받지 않음) */
   function warm(lang) {
-    if (!lang) return;
+    if (!lang) return null;
     if (!voices.length) loadVoices();
-    if (needsRemote(lang)) bundle(lang);
+    return needsRemote(lang) ? bundle(lang) : null;
   }
   /* 캐시 → 음성 묶음 → GAS 다운로드 순서 (받는 중이면 그 결과를 함께 사용) */
   function getAudio(text, proxy, lang) {
@@ -210,5 +245,5 @@ const TTS = (() => {
     throw new Error(lang === 'vi' ? t('eAll', { n: errs.length, m: errs.join(' / ') }) : errs.length + ' routes failed — ' + errs.join(' / '));
   }
 
-  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, warm, LANG_CODE };
+  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, warm, downloadAll, offlineStatus, LANG_CODE };
 })();
