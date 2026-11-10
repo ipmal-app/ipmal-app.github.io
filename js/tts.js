@@ -112,12 +112,34 @@ const TTS = (() => {
     if (!b64) throw new Error('GAS proxy: empty');
     return b64.startsWith('data:') ? b64 : 'data:audio/mpeg;base64,' + b64;
   }
-  /* 캐시에 있으면 즉시, 받는 중이면 그 결과를, 없으면 새로 받기 */
+  /* 기본 문장 음성 묶음 (audio/<언어>.json — 사이트에 미리 올린 MP3, GAS 호출 없이 즉시 재생)
+   * 문장 글자가 같을 때만 사용 → 시트에서 문장을 고치면 자동으로 기존 방식(GAS)으로 재생 */
+  const BUNDLE = {}, BREADY = {};
+  function bundle(lang) {
+    if (!(lang in BUNDLE)) BUNDLE[lang] = fetch('audio/' + lang + '.json').then(r => r.ok ? r.json() : null).catch(() => null)
+      .then(o => { BREADY[lang] = o || false; return o; });
+    return BUNDLE[lang];
+  }
+  /* 묶음이 아직 받는 중이면 최대 1.5초만 기다리고, 늦으면 이번 한 번은 GAS로 재생 (첫 재생이 다운로드에 묶이지 않게) */
+  async function fromBundle(text, lang) {
+    let b = BREADY[lang];
+    if (b === undefined) b = await Promise.race([bundle(lang), new Promise(r => setTimeout(() => r(null), 1500))]);
+    return b && b[text] ? 'data:audio/mpeg;base64,' + b[text] : null;
+  }
+  /* 앱 시작 후 학습 언어 묶음을 미리 받아 둠 (기기 음성으로 읽는 언어는 받지 않음) */
+  function warm(lang) {
+    if (!lang) return;
+    if (!voices.length) loadVoices();
+    if (needsRemote(lang)) bundle(lang);
+  }
+  /* 캐시 → 음성 묶음 → GAS 다운로드 순서 (받는 중이면 그 결과를 함께 사용) */
   function getAudio(text, proxy, lang) {
     const key = akey(lang, text);
     if (inflight.has(key)) return inflight.get(key);
     const p = (async () => {
       const hit = await cacheGet(key); if (hit) return hit;
+      const bun = await fromBundle(text, lang); if (bun) { mem.set(key, bun); return bun; }
+      if (!proxy) throw new Error('GAS proxy: no URL');
       const d = await fetchProxy(text, proxy, lang); await cachePut(key, d); return d;
     })();
     inflight.set(key, p);
@@ -125,7 +147,6 @@ const TTS = (() => {
     return p;
   }
   async function viaProxy(text, proxy, lang) {
-    if (!proxy) throw new Error('GAS proxy: no URL');
     return playAudio(await getAudio(text, proxy, lang), t('rProxy'));
   }
   /* 기기 음성으로 바로 읽는 언어는 받을 필요 없음 */
@@ -189,5 +210,5 @@ const TTS = (() => {
     throw new Error(lang === 'vi' ? t('eAll', { n: errs.length, m: errs.join(' / ') }) : errs.length + ' routes failed — ' + errs.join(' / '));
   }
 
-  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, LANG_CODE };
+  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, warm, LANG_CODE };
 })();

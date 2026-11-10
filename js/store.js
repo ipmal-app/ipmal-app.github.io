@@ -1,6 +1,7 @@
 /* 로컬 저장소 (브라우저별 저장, 실패 시 메모리로 동작) */
-/* 일일어학학습 GAS 웹앱 (베트남어 음성 프록시 + 번역 API) */
-const DEFAULT_PROXY = 'https://script.google.com/macros/s/AKfycbwE93izqo_K32-HnCqtbmBX-Z6mSvo5HbVCEQPiOrHlrhfzu-2c4doKejnozeXrpEyv/exec';
+/* 입말 앱 서버 (K1 Workspace 'Ipmal API' GAS — 음성 중계·번역·문장 목록·사진 번역)
+ * 일일어학학습 메일용 GAS(kangsh8880 'Daily Study v2')와 분리 — 2026-11-10 */
+const DEFAULT_PROXY = 'https://script.google.com/macros/s/AKfycbzxi-ridZMckh1PT0KyAoZ4hDWSzyZ-p5blAPwYFe78J3PIESaA0hjCfUEp868SvZUb/exec';
 
 const Store = (() => {
   const KEY = 'lingo5_v1';

@@ -170,7 +170,7 @@
     s.target = lang;
     if (s.native === lang) s.native = s.ui !== lang ? s.ui : (lang === 'ko' ? 'vi' : 'ko');
     save(); S = null; Q = null;
-    drawChrome(); route();
+    drawChrome(); route(); TTS.warm(lang);
   }
   function setNative(lang) {
     L().native = lang; save(); S = null; Q = null;
@@ -1208,6 +1208,7 @@
   drawChrome();
   route();
   fetchPhrases(false);
+  setTimeout(() => TTS.warm(L().target), 2500);   // 학습 언어 기본 음성 묶음 미리 받기
   if (Store.imported() === 'ok') { toast(t('migOk')); setTimeout(() => FX.confetti(0.5), 300); }
   else if (Store.imported() === 'skip') toast(t('migSkip'));
   else if (Store.imported() === 'fail') toast(t('migFail'), 'err');
