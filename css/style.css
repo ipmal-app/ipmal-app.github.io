@@ -559,3 +559,47 @@ svg.grow .br:nth-of-type(3n) { animation-delay: .08s; }
 @keyframes mWave { 0%, 100% { opacity: .35; } 40% { opacity: 1; } }
 .m-oops .m-wave path { animation: none; opacity: .25; }
 .m-party .m-wave path, .m-happy .m-wave path { animation-duration: .9s; }
+
+/* ===== v4: 첫 실행 안내 · 정보 ===== */
+body.ob-open { overflow: hidden; }
+.ob-wrap { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(40, 55, 80, .28); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: obFade .22s ease-out; }
+.ob-wrap.out { animation: obFadeOut .2s ease-in forwards; }
+.ob-box { width: min(440px, 100%); max-height: calc(100dvh - 32px); overflow: auto; background: var(--card); border: 1px solid var(--line);
+  border-radius: 22px; box-shadow: 0 18px 50px rgba(30, 50, 80, .18); padding: 22px 20px 16px; animation: obPop .32s cubic-bezier(.2, .9, .3, 1.2); }
+.ob-body { animation: obSlide .26s ease-out; text-align: center; }
+.ob-body h2 { margin: 6px 0 6px; font-size: 20px; }
+.ob-desc { color: var(--sub); margin: 0 0 14px; font-size: 14px; }
+.ob-mascot { display: flex; justify-content: center; }
+.ob-field { text-align: left; margin: 10px 0; }
+.ob-lbl { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--soft); margin-bottom: 6px; }
+.ob-lbl.tgt { background: var(--p-blue); color: var(--blue); }
+.ob-lbl.nat { background: var(--p-green); }
+.ob-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ob-demo { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 14px 0 10px; }
+.ob-mid { display: flex; align-items: center; gap: 8px; }
+.ob-card { width: 132px; min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 16px; background: var(--p-blue2); box-shadow: var(--shadow); animation: obWiggle 3.2s ease-in-out infinite; }
+.ob-card b { font-size: 18px; } .ob-card small { color: var(--sub); }
+.ob-arrow { font-size: 12.5px; font-weight: 700; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.ob-arrow.left { background: var(--p-pink); color: var(--red); }
+.ob-arrow.right { background: var(--p-green); color: var(--blue); }
+.ob-arrow.up { background: var(--p-yellow); }
+.ob-list { text-align: left; margin: 6px 0 0; padding: 0 0 0 4px; list-style: none; font-size: 14px; }
+.ob-list li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 12px; margin: 6px 0; background: var(--soft); }
+.ob-goals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.ob-goal { padding: 12px 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.ob-goal b { font-size: 17px; } .ob-goal span { font-size: 12.5px; color: var(--sub); }
+.ob-goal.on { background: var(--p-blue); border-color: var(--line-strong); }
+.ob-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 18px; }
+.ob-skip { border: 0; background: none; color: var(--sub); cursor: pointer; padding: 8px 4px; font-size: 13.5px; }
+.ob-dots { display: flex; gap: 6px; }
+.ob-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: width .2s, background .2s; }
+.ob-dots i.on { width: 20px; border-radius: 4px; background: #9DB8D6; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+@keyframes obFade { from { opacity: 0; } }
+@keyframes obFadeOut { to { opacity: 0; } }
+@keyframes obPop { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+@keyframes obSlide { from { opacity: 0; transform: translateX(16px); } }
+@keyframes obWiggle { 0%, 70%, 100% { transform: none; } 78% { transform: translateX(-10px) rotate(-4deg); } 86% { transform: translateX(10px) rotate(4deg); } 93% { transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .ob-wrap, .ob-box, .ob-body, .ob-card { animation: none !important; } }

@@ -1028,6 +1028,13 @@
         <div class="row gap wrap"><button class="btn" id="bkCopy" type="button">${t('bkCopy')}</button><button class="btn" id="bkLoad" type="button">${t('bkLoad')}</button>
           <button class="btn red" id="bkReset" type="button">${t('bkReset')}</button></div>
         <textarea id="bkText" class="csvout" placeholder="${esc(t('bkPh'))}"></textarea>
+      </div>
+      <div class="panel">
+        <h3>${t('aboutTitle')}</h3>
+        <p class="note">${t('privacyNote')}</p>
+        <div class="row gap wrap"><a class="btn" href="privacy.html?lang=${esc(s.ui)}" target="_blank" rel="noopener">🔒 ${t('privacy')}</a>
+          <button class="btn" id="obReplay" type="button">👋 ${t('obReplay')}</button></div>
+        <p class="note">${t('appVer')} ${APP_VER}</p>
       </div>`;
     $('#sUi').value = s.ui; $('#sTarget').value = s.target; $('#sNative').value = s.native; $('#sFront').value = s.front; $('#sNew').value = String(s.newPerDay);
     $('#sPron').checked = s.showPron; $('#sAuto').checked = s.autoplay;
@@ -1049,6 +1056,7 @@
     $('#sRate').oninput = e => { s.rate = +e.target.value; $('#rateV').textContent = s.rate; save(); };
     $('#sProxy').onchange = e => { s.proxy = e.target.value.trim(); save(); toast(s.proxy ? t('proxySaved') : t('proxyDel')); R.setup(); };
     $$('#view-setup [data-test]').forEach(b => b.onclick = () => say(PHRASES[1], b.dataset.test));
+    $('#obReplay').onclick = () => Onboard.open();
     $('#bkCopy').onclick = () => {
       const code = JSON.stringify(st);
       $('#bkText').value = code;
@@ -1081,6 +1089,88 @@
     };
   })();
 
+  /* ---------- 첫 실행 안내 (언어 → 카드 사용법 → 하루 목표) ---------- */
+  const APP_VER = '2026.11.10';
+  const Onboard = (() => {
+    let step = 0, el = null;
+    const GOALS = [[10, 'obGoalEasy'], [20, 'obGoalStd'], [30, 'obGoalHard'], [50, 'obGoalMax']];
+    const chip = (on, attr, k, label) => `<button type="button" class="chip ${on ? 'on' : ''}" data-${attr}="${k}">${LANGS[k].flag} ${esc(label)}</button>`;
+    function body() {
+      const s = L();
+      if (step === 0) return `
+        <div class="ob-mascot">${Mascot.svg('happy', 88)}</div>
+        <h2>${t('obHello')}</h2>
+        <p class="ob-desc">${t('obLangDesc')}</p>
+        <div class="ob-field"><span class="ob-lbl">🌐 ${t('uiLang')}</span><div class="ob-chips">${I18N.ORDER.map(k => chip(I18N.get() === k, 'ui', k, LANGS[k].self)).join('')}</div></div>
+        <div class="ob-field"><span class="ob-lbl tgt">${t('targetLang')}</span><div class="ob-chips">${I18N.ORDER.map(k => chip(s.target === k, 'tgt', k, ln(k))).join('')}</div></div>
+        <div class="ob-field"><span class="ob-lbl nat">${t('nativeLang')}</span><div class="ob-chips">${I18N.ORDER.filter(k => k !== s.target).map(k => chip(s.native === k, 'nat', k, ln(k))).join('')}</div></div>`;
+      if (step === 1) {
+        const p = PHRASES[0] || {};
+        return `
+        <h2>${t('obSwipeTitle')}</h2>
+        <div class="ob-demo" aria-hidden="true">
+          <span class="ob-arrow up">↑ ${t('obUp')}</span>
+          <div class="ob-mid"><span class="ob-arrow left">← ${t('obLeft')}</span>
+            <div class="ob-card"><b>${esc(p[s.target] || '')}</b><small>${esc(p[s.native] || '')}</small></div>
+            <span class="ob-arrow right">${t('obRight')} →</span></div>
+        </div>
+        <ul class="ob-list"><li>👆 ${t('obTap')}</li><li>${t('obListen')}</li><li>↔ ${t('obSwipeDesc')}</li></ul>`;
+      }
+      const g = Number(s.dailyGoal) || 20;
+      return `
+        <div class="ob-mascot">${Mascot.svg('party', 88)}</div>
+        <h2>${t('obGoalTitle')}</h2>
+        <p class="ob-desc">${t('obGoalDesc')}</p>
+        <div class="ob-goals">${GOALS.map(([n, k]) => `<button type="button" class="ob-goal ${g === n ? 'on' : ''}" data-goal="${n}"><b>${t('nCards', { n })}</b><span>${t(k)}</span></button>`).join('')}</div>`;
+    }
+    function draw() {
+      if (!el) return;
+      const last = step === 2;
+      el.innerHTML = `<div class="ob-box" role="dialog" aria-modal="true" aria-label="${esc(t('appTitle'))}">
+        <div class="ob-body ob-s${step}">${body()}</div>
+        <div class="ob-foot">
+          <button type="button" class="ob-skip" data-ob="skip">${t('obSkip')}</button>
+          <div class="ob-dots">${[0, 1, 2].map(i => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
+          <div class="row gap">${step ? `<button type="button" class="btn" data-ob="prev">${t('obPrev')}</button>` : ''}
+            <button type="button" class="btn blue" data-ob="${last ? 'start' : 'next'}">${last ? t('obStart') : t('obNext')}</button></div>
+        </div></div>`;
+      el.querySelectorAll('[data-ui]').forEach(b => b.onclick = () => { setUi(b.dataset.ui); draw(); });
+      el.querySelectorAll('[data-tgt]').forEach(b => b.onclick = () => { setTarget(b.dataset.tgt); draw(); });
+      el.querySelectorAll('[data-nat]').forEach(b => b.onclick = () => { setNative(b.dataset.nat); draw(); });
+      el.querySelectorAll('[data-goal]').forEach(b => b.onclick = () => { L().dailyGoal = +b.dataset.goal; save(); FX.haptic('mid'); draw(); });
+      el.querySelectorAll('[data-ob]').forEach(b => b.onclick = () => {
+        const a = b.dataset.ob;
+        if (a === 'next') { step = Math.min(2, step + 1); draw(); }
+        else if (a === 'prev') { step = Math.max(0, step - 1); draw(); }
+        else close(a === 'start');
+      });
+      const f = el.querySelector('[data-ob="next"],[data-ob="start"]'); if (f) f.focus({ preventScroll: true });
+    }
+    function key(e) { if (e.key === 'Escape') close(false); }
+    function open() {
+      if (el) return;
+      step = 0;
+      el = document.createElement('div'); el.className = 'ob-wrap'; el.id = 'onboard';
+      document.body.appendChild(el); document.body.classList.add('ob-open');
+      document.addEventListener('keydown', key, true);
+      draw();
+    }
+    function close(started) {
+      if (!el) return;
+      const s = L(); s.onboarded = true; save();
+      document.removeEventListener('keydown', key, true);
+      const node = el; el = null;
+      node.classList.add('out'); document.body.classList.remove('ob-open');
+      setTimeout(() => node.remove(), FX.reduced() ? 0 : 220);
+      if (started) {
+        S = null;
+        if (location.hash !== '#study') location.hash = '#study'; else route();
+        toast(t('obDone')); FX.confetti(0.5);
+      }
+    }
+    return { open, isOpen: () => !!el };
+  })();
+
   /* ---------- 시작 ---------- */
   drawChrome();
   route();
@@ -1088,4 +1178,5 @@
   if (Store.imported() === 'ok') { toast(t('migOk')); setTimeout(() => FX.confetti(0.5), 300); }
   else if (Store.imported() === 'skip') toast(t('migSkip'));
   else if (Store.imported() === 'fail') toast(t('migFail'), 'err');
+  if (!L().onboarded && Store.isFresh() && !Store.imported()) Onboard.open();
 })();
