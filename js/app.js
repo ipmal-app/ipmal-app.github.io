@@ -1062,7 +1062,7 @@
     $$('#view-setup [data-test]').forEach(b => b.onclick = () => say(PHRASES[1], b.dataset.test));
     $('#obReplay').onclick = () => Onboard.open();
     const showOff = () => TTS.offlineStatus().then(o => { const el = $('#offAudio'); if (el) el.innerHTML = `${t('offAudio')}: ` + I18N.ORDER.map(k => `${LANGS[k].flag}${o[k] ? '<b class="blue-t">✓</b>' : '<b class="red-t">✗</b>'}`).join(' '); });
-    showOff();
+    showOff(); offRefresh = showOff;
     $('#offAudioBtn').onclick = async e => { const b = e.currentTarget; b.disabled = true; await TTS.downloadAll(true); b.disabled = false; showOff(); toast(t('offAudioDone')); };
     $('#privLink').onclick = () => { privFromApp = true; privLang = ''; };
     $('#bkCopy').onclick = () => {
@@ -1098,7 +1098,7 @@
   })();
 
   /* ---------- 개인정보처리방침 (앱 안 화면 — 휴대폰 뒤로가기로 설정에 복귀) ---------- */
-  let privFromApp = false, privDoc = null;
+  let privFromApp = false, privDoc = null, offRefresh = null;
   let privLang = '';
   R.privacy = async function () {
     const el = $('#view-privacy'), lang = privLang || L().ui || I18N.browserLang();
@@ -1213,7 +1213,7 @@
   drawChrome();
   route();
   fetchPhrases(false);
-  setTimeout(() => Promise.resolve(TTS.warm(L().target)).then(() => TTS.downloadAll(false)), 2500);   // 기본 문장 음성 5개 언어 모두 기기에 저장 (오프라인 재생)
+  setTimeout(() => Promise.resolve(TTS.warm(L().target)).then(() => TTS.downloadAll(false)).then(() => { if (offRefresh && $('#offAudio')) offRefresh(); }), 2500);   // 기본 문장 음성 5개 언어 모두 기기에 저장 (오프라인 재생)
   if (Store.imported() === 'ok') { toast(t('migOk')); setTimeout(() => FX.confetti(0.5), 300); }
   else if (Store.imported() === 'skip') toast(t('migSkip'));
   else if (Store.imported() === 'fail') toast(t('migFail'), 'err');
