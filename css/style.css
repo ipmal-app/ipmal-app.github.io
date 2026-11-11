@@ -615,3 +615,8 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .priv-body th { background: var(--p-blue); white-space: nowrap; }
 .priv-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .priv-langs { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* 일본어·중국어 줄바꿈: 띄어쓰기가 없어 keep-all이면 블록 밖으로 넘침 → 글자 단위 줄바꿈 + 문장부호 규칙(줄 첫머리 금지문자) 적용 */
+.lang-ja, .lang-zh { word-break: normal; line-break: strict; overflow-wrap: anywhere; }
+/* 모든 언어 공통 안전장치: 아주 긴 단어(URL 등)도 블록 안에서 줄바꿈 */
+.opt, .q-main, .face-main, .face-back, .heard, .result .dst, .diff, .pron { overflow-wrap: anywhere; min-width: 0; }
