@@ -136,19 +136,29 @@ const TTS = (() => {
     return BUNDLE[lang];
   }
   /* 처음 실행 때 5개 언어 음성을 모두 기기에 저장 (이후 하루 1번 새 버전만 확인 — 바뀐 게 없으면 거의 0 데이터) */
-  async function downloadAll(force) {
-    if (!('caches' in window) || !navigator.onLine) return;
-    let last = 0; try { last = +localStorage.getItem('ipmal_audio_at') || 0; } catch (e) {}
+  /* onProg(받은 언어 수, 전체, 상태: loading·done·partial·offline·unsupported) — 첫 실행 안내의 진행 막대용
+   * first: 먼저 받을 언어(학습 언어) */
+  async function downloadAll(force, onProg, first) {
+    const tell = (d, st) => { try { if (onProg) onProg(d, ALL.length, st); } catch (e) {} };
+    if (!('caches' in window)) return tell(0, 'unsupported');
     const c = await caches.open(BCACHE);
-    for (const l of ALL) {
+    const count = async () => { let n = 0; for (const l of ALL) if (await c.match(burl(l))) n++; return n; };
+    if (!navigator.onLine) { const n = await count(); return tell(n, n === ALL.length ? 'done' : 'offline'); }
+    let last = 0; try { last = +localStorage.getItem('ipmal_audio_at') || 0; } catch (e) {}
+    const order = first && ALL.includes(first) ? [first, ...ALL.filter(l => l !== first)] : ALL;
+    let done = 0; tell(0, 'loading');
+    for (const l of order) {
       const has = await c.match(burl(l));
-      if (has && !force && (!last || Date.now() - last < 86400000)) continue;   // 방금 받은 것·하루 안에 확인한 것은 건너뜀
-      try {
-        const r = await fetch(burl(l), { cache: 'no-cache' });
-        if (r.ok) { await c.put(burl(l), r); if (BUNDLE[l]) { delete BUNDLE[l]; delete BREADY[l]; } }
-      } catch (e) {}
+      if (!(has && !force && (!last || Date.now() - last < 86400000))) {   // 방금 받은 것·하루 안에 확인한 것은 건너뜀
+        try {
+          const r = await fetch(burl(l), { cache: 'no-cache' });
+          if (r.ok) { await c.put(burl(l), r); if (BUNDLE[l]) { delete BUNDLE[l]; delete BREADY[l]; } }
+        } catch (e) {}
+      }
+      tell(++done, 'loading');
     }
     try { localStorage.setItem('ipmal_audio_at', String(Date.now())); } catch (e) {}
+    const n = await count(); tell(n, n === ALL.length ? 'done' : 'partial');
   }
   async function offlineStatus() {
     const out = {};

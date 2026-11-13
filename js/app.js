@@ -292,7 +292,7 @@
     if (!greeted && !S.flipped) {
       greeted = true;
       greetT.push(setTimeout(() => {
-        if (typeof Onboard !== 'undefined' && Onboard.isOpen()) { greeted = false; return; }   // 첫 실행 안내가 떠 있으면 닫힌 뒤에 인사
+        if (overlayOpen()) { greeted = false; return; }   // 첫 실행 안내·시작 화면이 떠 있으면 닫힌 뒤에 인사
         greetRun(false);
       }, 500));
     }
@@ -324,25 +324,71 @@
   const GREET_FALLBACK = { ko: '안녕하세요', vi: 'Xin chào', en: 'Hello', zh: '你好', ja: 'こんにちは' };
   let greeted = false, greetT = [];
   function greetStop() { greetT.forEach(clearTimeout); greetT = []; }
-  function greetRun(voice) {
-    const box = $('#mascotBox'); if (!box || !S) return;
-    greetStop();
-    const s = L(), hello = PHRASES.find(p => p.id === 'p001') || GREET_FALLBACK;
-    const order = [s.target, ...I18N.ORDER.filter(k => k !== s.target && k !== s.native), s.native];
-    box.innerHTML = Mascot.greeter('', 60);
+  /* 인사 애니메이션 (첫 화면·첫 실행 안내·시작 화면 공용)
+   * box: 그릴 곳 / size: 크기 / o.voice: 첫 인사 음성 / o.langs: 인사할 언어(기본: 학습→…→뜻) / o.timers: 타이머 모음 / o.onEnd */
+  function greetOrder() {
+    const s = L();
+    return [s.target, ...I18N.ORDER.filter(k => k !== s.target && k !== s.native), s.native];
+  }
+  function greetAnim(box, size, o) {
+    o = o || {}; const T = o.timers || [];
+    const hello = PHRASES.find(p => p.id === 'p001') || GREET_FALLBACK, order = o.langs || greetOrder();
+    box.innerHTML = Mascot.greeter('', size);
     const root = box.querySelector('.m-greet'), w = root.querySelector('.g-wrap'), m = root.querySelector('.mascot-svg'), b = root.querySelector('.mbubble');
-    const still = FX.reduced(), STEP = 1300;
+    const still = FX.reduced(), STEP = o.step || 1300;
     const re = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
-    order.forEach((lang, k) => greetT.push(setTimeout(() => {
-      const last = k === order.length - 1, word = hello[lang] || GREET_FALLBACK[lang];
+    order.forEach((lang, k) => T.push(setTimeout(() => {
+      const last = k === order.length - 1 && !o.noBig, word = hello[lang] || GREET_FALLBACK[lang];
       b.innerHTML = `<span class="g-code">${lang.toUpperCase()}</span>${esc(word)}${GREET_MARK[lang]}`;
       re(b, 'g-pop');
       if (!still) { w.classList.remove('g-hopL', 'g-hopR', 'g-big'); re(w, last ? 'g-big' : (k % 2 ? 'g-hopR' : 'g-hopL')); re(m, 'waving'); if (last) re(m, 'sparkle'); }
-      m.classList.add('talking'); greetT.push(setTimeout(() => m.classList.remove('talking'), 700));
-      if (voice && k === 0) say({ [lang]: word }, lang);
-    }, k * STEP)));
-    greetT.push(setTimeout(() => { greetT = []; setMood(S.mood, S.msg); }, order.length * STEP + 1600));
+      m.classList.add('talking'); T.push(setTimeout(() => m.classList.remove('talking'), 700));
+      if (o.voice && k === 0) say({ [lang]: word }, lang);
+    }, (o.delay || 0) + k * STEP)));
+    if (o.onEnd) T.push(setTimeout(o.onEnd, (o.delay || 0) + order.length * STEP + 1600));
+    return T;
   }
+  function greetRun(voice) {
+    const box = $('#mascotBox'); if (!box || !S) return;
+    greetStop();
+    greetAnim(box, 60, { voice, timers: greetT, onEnd: () => { greetT = []; setMood(S.mood, S.msg); } });
+  }
+  /* 오프라인 음성 받기 진행 상태 (첫 실행 안내 진행 막대 · 설정 표시) */
+  const AUD = { done: 0, total: 5, state: 'idle' };
+  function audProg(d, n, stt) {
+    AUD.done = d; AUD.total = n; AUD.state = stt;
+    if (typeof Onboard !== 'undefined') Onboard.progress();
+    if ((stt === 'done' || stt === 'partial') && offRefresh && $('#offAudio')) offRefresh();
+  }
+  function audHtml() {
+    if (AUD.state === 'done') return `<div class="ob-bar done"><i style="width:100%"></i></div><span class="ob-prog-t ok">✓ ${t('obAudioDone')}</span>`;
+    if (AUD.state === 'offline' || AUD.state === 'unsupported') return `<span class="ob-prog-t">${t('obAudioOff')}</span>`;
+    const pct = Math.round(AUD.done / (AUD.total || 5) * 100);
+    return `<div class="ob-bar"><i style="width:${Math.max(pct, 4)}%"></i></div><span class="ob-prog-t">${t('obAudioLoading')} ${AUD.done}/${AUD.total} · ${t('obAudioHint')}</span>`;
+  }
+
+  /* 시작 화면 (하루 첫 실행 때만, 약 1.2초 · 누르면 바로 넘어감) */
+  function splash() {
+    const day = new Date().toDateString();
+    let shown = ''; try { shown = localStorage.getItem('ipmal_splash_day') || ''; } catch (e) {}
+    if (shown === day) return;
+    try { localStorage.setItem('ipmal_splash_day', day); } catch (e) {}
+    const el = document.createElement('div'); el.id = 'splash'; el.className = 'splash';
+    el.innerHTML = `<div class="sp-mascot"></div><div class="sp-title">${t('appTitle')}</div><div class="sp-sub">${t('splashSub')}</div>`;
+    document.body.appendChild(el);
+    const T = greetAnim(el.querySelector('.sp-mascot'), 150, { langs: [L().target], step: 900, delay: 150, noBig: true });
+    let gone = false;
+    const close = () => {
+      if (gone) return; gone = true; T.forEach(clearTimeout);
+      el.classList.add('out'); setTimeout(() => { el.remove(); greetAfterOverlay(150); }, FX.reduced() ? 0 : 320);
+    };
+    el.onclick = close;
+    setTimeout(close, FX.reduced() ? 800 : 1250);
+  }
+
+  /* 다른 화면(안내·시작 화면)이 덮고 있으면 첫 화면 인사를 미룸 */
+  function overlayOpen() { return (typeof Onboard !== 'undefined' && Onboard.isOpen()) || !!$('#splash'); }
+  function greetAfterOverlay(ms) { setTimeout(() => { if (!greeted && !overlayOpen() && $('#mascotBox')) { greeted = true; greetRun(false); } }, ms); }
   function setMood(mood, msg) {
     greetStop();
     S.mood = mood; S.msg = msg;
@@ -1161,13 +1207,13 @@
   /* ---------- 첫 실행 안내 (언어 → 카드 사용법 → 하루 목표) ---------- */
   const APP_VER = '2026.11.10';
   const Onboard = (() => {
-    let step = 0, el = null;
+    let step = 0, el = null, obT = [];
     const GOALS = [[10, 'obGoalEasy'], [20, 'obGoalStd'], [30, 'obGoalHard'], [50, 'obGoalMax']];
     const chip = (on, attr, k, label) => `<button type="button" class="chip ${on ? 'on' : ''}" data-${attr}="${k}">${LANGS[k].flag} ${esc(label)}</button>`;
     function body() {
       const s = L();
       if (step === 0) return `
-        <div class="ob-mascot">${Mascot.svg('happy', 88)}</div>
+        <div class="ob-mascot ob-greet" id="obGreet"></div>
         <h2>${t('obHello')}</h2>
         <p class="ob-desc">${t('obLangDesc')}</p>
         <div class="ob-field"><span class="ob-lbl">🌐 ${t('uiLang')}</span><div class="ob-chips">${I18N.ORDER.map(k => chip(I18N.get() === k, 'ui', k, LANGS[k].self)).join('')}</div></div>
@@ -1197,12 +1243,16 @@
       const last = step === 2;
       el.innerHTML = `<div class="ob-box" role="dialog" aria-modal="true" aria-label="${esc(t('appTitle'))}">
         <div class="ob-body ob-s${step}">${body()}</div>
+        <div class="ob-prog" id="obProg" aria-live="polite">${audHtml()}</div>
         <div class="ob-foot">
           <button type="button" class="ob-skip" data-ob="skip">${t('obSkip')}</button>
           <div class="ob-dots">${[0, 1, 2].map(i => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
           <div class="row gap">${step ? `<button type="button" class="btn" data-ob="prev">${t('obPrev')}</button>` : ''}
             <button type="button" class="btn blue" data-ob="${last ? 'start' : 'next'}">${last ? t('obStart') : t('obNext')}</button></div>
         </div></div>`;
+      obT.forEach(clearTimeout); obT = [];
+      const g = el.querySelector('#obGreet');
+      if (g) greetAnim(g, 120, { timers: obT, delay: 300 });
       el.querySelectorAll('[data-ui]').forEach(b => b.onclick = () => { setUi(b.dataset.ui); draw(); });
       el.querySelectorAll('[data-tgt]').forEach(b => b.onclick = () => { setTarget(b.dataset.tgt); draw(); });
       el.querySelectorAll('[data-nat]').forEach(b => b.onclick = () => { setNative(b.dataset.nat); draw(); });
@@ -1227,6 +1277,7 @@
     }
     function close(started, fromPop) {
       if (!el) return;
+      obT.forEach(clearTimeout); obT = [];
       const s = L(); s.onboarded = true; save();
       document.removeEventListener('keydown', key, true);
       const node = el; el = null;
@@ -1239,19 +1290,23 @@
         toast(t('obDone')); FX.confetti(0.5);
       };
       if (!fromPop && history.state && history.state.ob) { history.back(); setTimeout(go, 120); } else go();
-      setTimeout(() => { if (!greeted && $('#mascotBox')) { greeted = true; greetRun(false); } }, started ? 900 : 400);   // 안내를 닫은 뒤 입말이 인사
+      greetAfterOverlay(started ? 900 : 400);   // 안내를 닫은 뒤 입말이 인사
     }
     window.addEventListener('popstate', () => { if (el) close(false, true); });
-    return { open, isOpen: () => !!el };
+    function progress() { const p = el && el.querySelector('#obProg'); if (p) p.innerHTML = audHtml(); }
+    return { open, isOpen: () => !!el, progress };
   })();
 
   /* ---------- 시작 ---------- */
   drawChrome();
   route();
   fetchPhrases(false);
-  setTimeout(() => Promise.resolve(TTS.warm(L().target)).then(() => TTS.downloadAll(false)).then(() => { if (offRefresh && $('#offAudio')) offRefresh(); }), 2500);   // 기본 문장 음성 5개 언어 모두 기기에 저장 (오프라인 재생)
+  const firstRun = !L().onboarded && Store.isFresh() && !Store.imported();
+  // 기본 문장 음성 5개 언어 모두 기기에 저장 (오프라인 재생) — 처음 설치 때는 바로, 평소에는 2.5초 뒤 (학습 언어부터)
+  setTimeout(() => TTS.downloadAll(false, audProg, L().target), firstRun ? 300 : 2500);
   if (Store.imported() === 'ok') { toast(t('migOk')); setTimeout(() => FX.confetti(0.5), 300); }
   else if (Store.imported() === 'skip') toast(t('migSkip'));
   else if (Store.imported() === 'fail') toast(t('migFail'), 'err');
-  if (!L().onboarded && Store.isFresh() && !Store.imported()) Onboard.open();
+  if (firstRun) { Onboard.open(); try { localStorage.setItem('ipmal_splash_day', new Date().toDateString()); } catch (e) {} }   // 설치한 날은 안내에서 인사했으므로 시작 화면 생략
+  else splash();
 })();

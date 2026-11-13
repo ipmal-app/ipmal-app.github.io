@@ -287,6 +287,11 @@ const I18N = (() => {
     eBlocked: ['{src} 재생 차단: {m}', '{src} bị chặn phát: {m}', '{src} playback blocked: {m}', '{src} 播放被阻止：{m}', '{src} 再生ブロック：{m}'],
     eAll: ['베트남어 음성 {n}개 경로 모두 실패 — {m}', 'Tất cả {n} cách phát tiếng Việt đều thất bại — {m}', 'All {n} Vietnamese audio routes failed — {m}', '越南语语音 {n} 种方式全部失败 — {m}', 'ベトナム語音声{n}経路すべて失敗 — {m}'],
 
+    obAudioLoading: ['오프라인 음성 준비 중', 'Đang chuẩn bị âm thanh ngoại tuyến', 'Preparing offline audio', '正在准备离线语音', 'オフライン音声を準備中'],
+    obAudioDone: ['오프라인 음성 준비 완료', 'Âm thanh ngoại tuyến đã sẵn sàng', 'Offline audio ready', '离线语音已就绪', 'オフライン音声の準備完了'],
+    obAudioOff: ['인터넷에 연결되면 음성을 받아요', 'Sẽ tải âm thanh khi có Internet', 'Audio will download when online', '联网后将下载语音', 'オンライン時に音声を取得します'],
+    obAudioHint: ['기다리지 않고 바로 시작해도 돼요', 'Bạn có thể bắt đầu ngay', 'You can start right away', '无需等待，可直接开始', '待たずに始めて大丈夫です'],
+    splashSub: ['5개국어 말하기', 'Nói 5 ngôn ngữ', 'Speak 5 languages', '说五种语言', '5か国語で話そう'],
     offAudio: ['오프라인 음성 (기본 문장)', 'Âm thanh ngoại tuyến (câu cơ bản)', 'Offline audio (built-in phrases)', '离线语音（基本句子）', 'オフライン音声（基本文）'],
     offAudioBtn: ['음성 다시 받기', 'Tải lại âm thanh', 'Download audio again', '重新下载语音', '音声を再取得'],
     offAudioDone: ['오프라인 음성 저장 완료', 'Đã lưu âm thanh ngoại tuyến', 'Offline audio saved', '离线语音已保存', 'オフライン音声を保存しました'],
