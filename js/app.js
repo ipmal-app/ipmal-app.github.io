@@ -229,7 +229,7 @@
     el.innerHTML = `
       <div class="study-top">
         <div class="goal">${FX.ring(today, goal)}<div class="goal-txt"><b>${t('goalLbl')}</b><span><em>${today}</em> / ${goal}</span></div></div>
-        <div id="mascotBox">${Mascot.html(S.mood, S.msg, 60)}</div>
+        <div id="mascotBox" role="button" tabindex="0" aria-label="${esc(t('mHello'))}">${Mascot.html(S.mood, S.msg, 60)}</div>
       </div>
       <div class="meta">
         <span class="pill blue">${t('due')} ${S.dueN}</span><span class="pill green">${t('new')} ${S.newN}</span>
@@ -286,6 +286,10 @@
       save(); $('#shadowRes').innerHTML = shadowBox(res);
     });
     bindGrade();
+    const mb = $('#mascotBox');
+    mb.onclick = () => greetRun(true);
+    mb.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); greetRun(true); } };
+    if (!greeted && !S.flipped && !(typeof Onboard !== 'undefined' && Onboard.isOpen())) { greeted = true; greetT.push(setTimeout(() => greetRun(false), 500)); }
     S.anim = false;
     if (autoplay && s.autoplay && !S.flipped && front === s.target) say(c, s.target);
   }
@@ -309,7 +313,32 @@
     setMood('think', t('mThink'));
     if (L().autoplay && L().front === 'native') say(cur(), L().target);
   }
+  /* 첫 화면 인사: 손 흔들며 콩콩 뛰고 5개국어로 인사 (학습 언어 → … → 뜻 언어), 입말이를 누르면 다시 + 음성 */
+  const GREET_MARK = { ko: '!', vi: '!', en: '!', zh: '！', ja: '！' };
+  const GREET_FALLBACK = { ko: '안녕하세요', vi: 'Xin chào', en: 'Hello', zh: '你好', ja: 'こんにちは' };
+  let greeted = false, greetT = [];
+  function greetStop() { greetT.forEach(clearTimeout); greetT = []; }
+  function greetRun(voice) {
+    const box = $('#mascotBox'); if (!box || !S) return;
+    greetStop();
+    const s = L(), hello = PHRASES.find(p => p.id === 'p001') || GREET_FALLBACK;
+    const order = [s.target, ...I18N.ORDER.filter(k => k !== s.target && k !== s.native), s.native];
+    box.innerHTML = Mascot.greeter('', 60);
+    const root = box.querySelector('.m-greet'), w = root.querySelector('.g-wrap'), m = root.querySelector('.mascot-svg'), b = root.querySelector('.mbubble');
+    const still = FX.reduced(), STEP = 1300;
+    const re = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
+    order.forEach((lang, k) => greetT.push(setTimeout(() => {
+      const last = k === order.length - 1, word = hello[lang] || GREET_FALLBACK[lang];
+      b.innerHTML = `<span class="g-code">${lang.toUpperCase()}</span>${esc(word)}${GREET_MARK[lang]}`;
+      re(b, 'g-pop');
+      if (!still) { w.classList.remove('g-hopL', 'g-hopR', 'g-big'); re(w, last ? 'g-big' : (k % 2 ? 'g-hopR' : 'g-hopL')); re(m, 'waving'); if (last) re(m, 'sparkle'); }
+      m.classList.add('talking'); greetT.push(setTimeout(() => m.classList.remove('talking'), 700));
+      if (voice && k === 0) say({ [lang]: word }, lang);
+    }, k * STEP)));
+    greetT.push(setTimeout(() => { greetT = []; setMood(S.mood, S.msg); }, order.length * STEP + 1600));
+  }
   function setMood(mood, msg) {
+    greetStop();
     S.mood = mood; S.msg = msg;
     const box = $('#mascotBox'); if (box) box.innerHTML = Mascot.html(mood, msg, 60);
   }

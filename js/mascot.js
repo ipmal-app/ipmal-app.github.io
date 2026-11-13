@@ -68,9 +68,26 @@ const Mascot = (() => {
     </svg>`;
   }
 
+  /* 인사용 입말이 (첫 화면): 기본 얼굴 + 흔드는 손 + 말할 때 웃는 눈·벌린 입 + 반짝이
+   * 움직임은 CSS 클래스로 제어: .talking(입 벙긋·웃는 눈) .waving(손 흔들기) .sparkle(반짝이) */
+  function greetSvg(size) {
+    let s = svg('idle', size);
+    const closed = lips(CLOSED, 0.22);
+    s = s.replace('<g class="m-body">', `<g transform="translate(86,48)"><g class="g-hand"><ellipse cx="14" cy="10" rx="9.5" ry="12" fill="#D2EEDC" stroke="#8CCBA2" stroke-width="3.2"/></g></g><g class="m-body">`);
+    s = s.replace('<g class="m-eyes">', '<g class="m-eyes g-ed">');
+    s = s.replace(closed, `<g class="g-eh" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"><path d="M36,62 Q41,55 46,62"/><path d="M62,62 Q67,55 72,62"/></g>
+      <g class="g-mc">${closed}</g><g class="g-mo">${lips(OPEN, 0.24)}</g>`);
+    const star = (x, y, c, k) => `<path class="g-sp g-sp${k}" d="M${x},${y - 7} l1.8,5.2 5.2,1.8 -5.2,1.8 -1.8,5.2 -1.8,-5.2 -5.2,-1.8 5.2,-1.8z" fill="${c}"/>`;
+    s = s.replace(/<\/svg>\s*$/, star(8, 30, '#F6D98A', 1) + star(108, 18, '#C9BDEB', 2) + star(30, 8, '#B5D4F4', 3) + '</svg>');
+    return s;
+  }
+  function greeter(msg, size) {
+    return `<div class="mascot m-greet"><div class="g-wrap"><span class="g-shadow"></span>${greetSvg(size)}</div><div class="mbubble">${msg || ''}</div></div>`;
+  }
+
   function html(state, msg, size) {
     return `<div class="mascot m-${state}">${svg(state, size)}${msg ? `<div class="mbubble">${msg}</div>` : ''}</div>`;
   }
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  return { svg, html, pick };
+  return { svg, html, pick, greeter };
 })();
