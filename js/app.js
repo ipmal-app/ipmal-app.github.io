@@ -289,7 +289,13 @@
     const mb = $('#mascotBox');
     mb.onclick = () => greetRun(true);
     mb.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); greetRun(true); } };
-    if (!greeted && !S.flipped && !(typeof Onboard !== 'undefined' && Onboard.isOpen())) { greeted = true; greetT.push(setTimeout(() => greetRun(false), 500)); }
+    if (!greeted && !S.flipped) {
+      greeted = true;
+      greetT.push(setTimeout(() => {
+        if (typeof Onboard !== 'undefined' && Onboard.isOpen()) { greeted = false; return; }   // 첫 실행 안내가 떠 있으면 닫힌 뒤에 인사
+        greetRun(false);
+      }, 500));
+    }
     S.anim = false;
     if (autoplay && s.autoplay && !S.flipped && front === s.target) say(c, s.target);
   }
@@ -1233,6 +1239,7 @@
         toast(t('obDone')); FX.confetti(0.5);
       };
       if (!fromPop && history.state && history.state.ob) { history.back(); setTimeout(go, 120); } else go();
+      setTimeout(() => { if (!greeted && $('#mascotBox')) { greeted = true; greetRun(false); } }, started ? 900 : 400);   // 안내를 닫은 뒤 입말이 인사
     }
     window.addEventListener('popstate', () => { if (el) close(false, true); });
     return { open, isOpen: () => !!el };
