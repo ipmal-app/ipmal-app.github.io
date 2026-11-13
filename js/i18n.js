@@ -291,6 +291,8 @@ const I18N = (() => {
     obAudioDone: ['오프라인 음성 준비 완료', 'Âm thanh ngoại tuyến đã sẵn sàng', 'Offline audio ready', '离线语音已就绪', 'オフライン音声の準備完了'],
     obAudioOff: ['인터넷에 연결되면 음성을 받아요', 'Sẽ tải âm thanh khi có Internet', 'Audio will download when online', '联网后将下载语音', 'オンライン時に音声を取得します'],
     obAudioHint: ['기다리지 않고 바로 시작해도 돼요', 'Bạn có thể bắt đầu ngay', 'You can start right away', '无需等待，可直接开始', '待たずに始めて大丈夫です'],
+    splashVoice: ['앱을 열 때 입말이가 소리로 인사', 'Ipmal chào bằng giọng nói khi mở ứng dụng', 'Greet me out loud when the app opens', '打开应用时用语音问候', 'アプリを開くと声であいさつ'],
+    splashTap: ['눌러서 인사 듣기', 'Chạm để nghe lời chào', 'Tap to hear the greeting', '点击收听问候', 'タップしてあいさつを聞く'],
     splashSub: ['5개국어 말하기', 'Nói 5 ngôn ngữ', 'Speak 5 languages', '说五种语言', '5か国語で話そう'],
     offAudio: ['오프라인 음성 (기본 문장)', 'Âm thanh ngoại tuyến (câu cơ bản)', 'Offline audio (built-in phrases)', '离线语音（基本句子）', 'オフライン音声（基本文）'],
     offAudioBtn: ['음성 다시 받기', 'Tải lại âm thanh', 'Download audio again', '重新下载语音', '音声を再取得'],

@@ -678,3 +678,9 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .sp-title { font-size: 30px; font-weight: 800; letter-spacing: 1px; margin-top: 10px; }
 .sp-sub { font-size: 14px; color: var(--sub); }
 @media (prefers-reduced-motion: reduce) { .splash, .splash.out, .ob-bar i { animation: none !important; } }
+.sp-mean { font-size: 14px; color: var(--sub); margin-top: 6px; min-height: 18px; }
+.sp-tap { margin-top: 14px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--card); font-size: 14px; font-weight: 700; animation: spTap 1.2s ease-in-out infinite; }
+@keyframes spTap { 50% { transform: scale(1.06); } }
+.sp-pron { font-size: 14px; font-style: italic; color: var(--blue); margin-top: 8px; text-align: center; max-width: 86vw; }
+.sp-pron + .sp-mean { margin-top: 2px; }
+.sp-mascot .mbubble { max-width: 82vw; }

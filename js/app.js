@@ -338,11 +338,12 @@
     const still = FX.reduced(), STEP = o.step || 1300;
     const re = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
     order.forEach((lang, k) => T.push(setTimeout(() => {
-      const last = k === order.length - 1 && !o.noBig, word = hello[lang] || GREET_FALLBACK[lang];
-      b.innerHTML = `<span class="g-code">${lang.toUpperCase()}</span>${esc(word)}${GREET_MARK[lang]}`;
+      const last = k === order.length - 1 && !o.noBig, word = (o.words && o.words[lang]) || hello[lang] || GREET_FALLBACK[lang];
+      const mark = /[!?！？.。]$/.test(word) ? '' : GREET_MARK[lang];
+      b.innerHTML = `<span class="g-code">${lang.toUpperCase()}</span>${esc(word)}${mark}`;
       re(b, 'g-pop');
       if (!still) { w.classList.remove('g-hopL', 'g-hopR', 'g-big'); re(w, last ? 'g-big' : (k % 2 ? 'g-hopR' : 'g-hopL')); re(m, 'waving'); if (last) re(m, 'sparkle'); }
-      m.classList.add('talking'); T.push(setTimeout(() => m.classList.remove('talking'), 700));
+      m.classList.add('talking'); if (!o.holdTalk) T.push(setTimeout(() => m.classList.remove('talking'), 700));
       if (o.voice && k === 0) say({ [lang]: word }, lang);
     }, (o.delay || 0) + k * STEP)));
     if (o.onEnd) T.push(setTimeout(o.onEnd, (o.delay || 0) + order.length * STEP + 1600));
@@ -367,23 +368,52 @@
     return `<div class="ob-bar"><i style="width:${Math.max(pct, 4)}%"></i></div><span class="ob-prog-t">${t('obAudioLoading')} ${AUD.done}/${AUD.total} · ${t('obAudioHint')}</span>`;
   }
 
-  /* 시작 화면 (하루 첫 실행 때만, 약 1.2초 · 누르면 바로 넘어감) */
+  /* 시작 화면 (앱을 열 때마다): 입말이가 학습 언어로 인사 문장 하나를 소리 내어 말하고 입장
+   * 문장은 열 때마다 바뀜 · 음성은 기기에 저장된 것 사용(오프라인 가능) · 화면을 누르면 바로 넘어감
+   * 자동 재생이 막힌 기기는 '눌러서 듣기' 표시 · 설정 '시작할 때 소리로 인사'로 끌 수 있음 */
+  const SPLASH_IDS = ['p001', 'g002', 'p006', 'p048', 'g021', 'g027', 'p054'];
   function splash() {
-    const day = new Date().toDateString();
-    let shown = ''; try { shown = localStorage.getItem('ipmal_splash_day') || ''; } catch (e) {}
-    if (shown === day) return;
-    try { localStorage.setItem('ipmal_splash_day', day); } catch (e) {}
+    const s = L(), lang = s.target, voiceOn = s.splashVoice !== false;
+    let n = 0; try { n = +localStorage.getItem('ipmal_greet_i') || 0; localStorage.setItem('ipmal_greet_i', String(n + 1)); } catch (e) {}
+    const pool = SPLASH_IDS.map(id => PHRASES.find(p => p.id === id)).filter(p => p && p[lang]);
+    const ph = pool.length ? pool[n % pool.length] : null;
+    const word = ph ? ph[lang] : GREET_FALLBACK[lang], mean = ph && s.native !== lang ? ph[s.native] : '';
+    const pr = ph && s.showPron ? pron(ph, lang) : '';   // 발음 표기 (카드 학습 '발음 표시' 설정을 따름)
     const el = document.createElement('div'); el.id = 'splash'; el.className = 'splash';
-    el.innerHTML = `<div class="sp-mascot"></div><div class="sp-title">${t('appTitle')}</div><div class="sp-sub">${t('splashSub')}</div>`;
+    el.innerHTML = `<div class="sp-mascot"></div>${pr ? `<div class="sp-pron">${esc(pr)}</div>` : ''}<div class="sp-mean">${esc(mean || '')}</div>
+      <div class="sp-title">${t('appTitle')}</div><div class="sp-sub">${t('splashSub')}</div>
+      <div class="sp-tap" hidden>🔊 ${t('splashTap')}</div>`;
     document.body.appendChild(el);
-    const T = greetAnim(el.querySelector('.sp-mascot'), 150, { langs: [L().target], step: 900, delay: 150, noBig: true });
-    let gone = false;
+    const T = greetAnim(el.querySelector('.sp-mascot'), 150, { langs: [lang], words: { [lang]: word }, step: 900, delay: 150, noBig: true, holdTalk: true });
+    const mouth = () => el.querySelector('.mascot-svg');
+    const talk = on => { const m = mouth(); if (m) m.classList.toggle('talking', on); };
+    let gone = false, audio = null;
     const close = () => {
       if (gone) return; gone = true; T.forEach(clearTimeout);
+      if (audio) { try { audio.pause(); } catch (e) {} }
       el.classList.add('out'); setTimeout(() => { el.remove(); greetAfterOverlay(150); }, FX.reduced() ? 0 : 320);
     };
+    const later = ms => T.push(setTimeout(close, ms));
     el.onclick = close;
-    setTimeout(close, FX.reduced() ? 800 : 1250);
+    T.push(setTimeout(() => { if (!audio || audio.paused) talk(false); }, 1000));
+    if (!voiceOn) return later(FX.reduced() ? 800 : 1250);
+    later(6000);   // 안전장치: 아무리 길어도 6초 안에 입장
+    TTS.bundleSrc(word, lang).then(src => {
+      if (gone) return;
+      if (!src) {   // 저장된 음성이 아직 없으면(처음 받는 중) 일반 재생 경로로 시도하고 바로 입장
+        TTS.speak(word, lang, { rate: s.rate, proxy: proxyUrl() }).catch(() => {});
+        return later(1600);
+      }
+      audio = new Audio(src);
+      audio.onplaying = () => talk(true);
+      audio.onended = () => { talk(false); later(450); };
+      audio.play().catch(() => {   // 자동 재생이 막힌 기기: 눌러서 듣기
+        talk(false);
+        const tap = el.querySelector('.sp-tap'); tap.hidden = false;
+        el.onclick = () => { tap.hidden = true; el.onclick = close; audio.play().catch(close); };
+        later(3200);
+      });
+    });
   }
 
   /* 다른 화면(안내·시작 화면)이 덮고 있으면 첫 화면 인사를 미룸 */
@@ -1078,6 +1108,7 @@
         </div>
         <label class="check"><input type="checkbox" id="sPron"> ${t('showPron')}</label>
         <label class="check"><input type="checkbox" id="sAuto"> ${t('autoplay')}</label>
+        <label class="check"><input type="checkbox" id="sSplashV"> ${t('splashVoice')}</label>
         <label class="check"><input type="checkbox" id="sHaptic"> ${t('hapticLbl')}</label>
       </div>
       <div class="panel">
@@ -1138,6 +1169,8 @@
     $('#sNew').onchange = e => { s.newPerDay = +e.target.value; save(); S = null; };
     $('#sPron').onchange = e => { s.showPron = e.target.checked; save(); };
     $('#sAuto').onchange = e => { s.autoplay = e.target.checked; save(); };
+    $('#sSplashV').checked = s.splashVoice !== false;
+    $('#sSplashV').onchange = e => { s.splashVoice = e.target.checked; save(); };
     $('#sRate').oninput = e => { s.rate = +e.target.value; $('#rateV').textContent = s.rate; save(); };
     $('#sProxy').onchange = e => { s.proxy = e.target.value.trim(); save(); toast(s.proxy ? t('proxySaved') : t('proxyDel')); R.setup(); };
     $$('#view-setup [data-test]').forEach(b => b.onclick = () => say(PHRASES[1], b.dataset.test));
@@ -1307,6 +1340,5 @@
   if (Store.imported() === 'ok') { toast(t('migOk')); setTimeout(() => FX.confetti(0.5), 300); }
   else if (Store.imported() === 'skip') toast(t('migSkip'));
   else if (Store.imported() === 'fail') toast(t('migFail'), 'err');
-  if (firstRun) { Onboard.open(); try { localStorage.setItem('ipmal_splash_day', new Date().toDateString()); } catch (e) {} }   // 설치한 날은 안내에서 인사했으므로 시작 화면 생략
-  else splash();
+  if (firstRun) Onboard.open(); else splash();   // 처음 설치 때는 안내 화면에서 인사, 이후에는 열 때마다 시작 화면
 })();

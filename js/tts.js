@@ -255,5 +255,5 @@ const TTS = (() => {
     throw new Error(lang === 'vi' ? t('eAll', { n: errs.length, m: errs.join(' / ') }) : errs.length + ' routes failed — ' + errs.join(' / '));
   }
 
-  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, warm, downloadAll, offlineStatus, LANG_CODE };
+  return { speak, stop, clean, isMobile, pickVoice, viRoute, hasVoice, prefetch, warm, downloadAll, offlineStatus, bundleSrc: (text, lang) => fromBundle(clean(text), lang), LANG_CODE };
 })();
