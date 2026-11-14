@@ -1,7 +1,7 @@
 /* 오프라인 캐시 — 앱 파일은 네트워크 우선(서버 최신 확인), 실패 시 캐시 사용 */
-const CACHE = 'ipmal-v3';
+const CACHE = 'ipmal-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './css/style.css', './privacy.html', './css/doc.css', './js/privacy.js',
-  './js/i18n.js', './js/data.js', './js/store.js', './js/srs.js', './js/tts.js', './js/translate.js', './js/compare.js', './js/fx.js', './js/mascot.js', './js/app.js',
+  './js/i18n.js', './js/data.js', './js/store.js', './js/srs.js', './js/tts.js', './js/translate.js', './js/compare.js', './js/ocr.js', './js/fx.js', './js/mascot.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon.svg', './icons/favicon-32.png'];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())); });
@@ -15,7 +15,8 @@ self.addEventListener('fetch', e => {
   const same = url.origin === self.location.origin;
   const font = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
   if (!same && !font) return;   // 음성·번역 요청은 캐시하지 않음
-  if (same && url.pathname.includes('/audio/')) return;   // 기본 문장 음성 묶음은 앱(tts.js)이 직접 기기에 저장
+  if (same && url.pathname.includes('/audio/')) return;    // 기본 문장 음성 묶음은 앱(tts.js)이 직접 기기에 저장
+  if (same && url.pathname.includes('/vendor/')) return;   // 사진 글자 인식 엔진은 브라우저 자체 캐시 사용 (중복 저장 방지)
   if (font) {
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); return res; })));
     return;

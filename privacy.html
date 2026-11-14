@@ -39,7 +39,7 @@
     <tr><td>음성 듣기</td><td>읽어 줄 문장(텍스트)</td><td>Google Apps Script를 거쳐 Google 번역 음성</td></tr>
     <tr><td>번역</td><td>번역할 문장(텍스트)</td><td>Google Apps Script(Google 번역), 실패 시 Google 번역 또는 MyMemory 번역</td></tr>
     <tr><td>말하기·음성 입력</td><td>말한 음성</td><td>브라우저의 음성 인식 기능 (예: Chrome은 Google 음성 인식)</td></tr>
-    <tr><td>사진 번역</td><td>촬영하거나 고른 사진</td><td>Google Apps Script → Google Drive 글자 인식. 인식 직후 사진 파일을 삭제하며 보관하지 않음</td></tr>
+    <tr><td>사진 번역</td><td>사진에서 읽은 글자(사진 자체는 보내지 않음)</td><td>글자 인식은 휴대폰 안에서 처리. 읽은 글자만 번역에 사용. 기기에서 인식 엔진을 못 쓰는 경우에 한해 사진을 Google Apps Script → Google Drive 글자 인식으로 보내고, 인식 직후 삭제하며 보관하지 않음</td></tr>
     <tr><td>문장 목록 받기</td><td>없음 (문장 목록만 내려받음)</td><td>Google Apps Script (Google 시트)</td></tr>
     <tr><td>글꼴</td><td>없음 (글꼴 파일만 내려받음)</td><td>Google Fonts</td></tr></table>
   <p class="note">각 외부 서비스의 정보 처리는 해당 회사의 방침을 따릅니다: Google 개인정보처리방침 (https://policies.google.com/privacy), MyMemory (https://mymemory.translated.net/doc/privacy.php)</p>
@@ -88,7 +88,7 @@
     <tr><td>Nghe phát âm</td><td>Câu cần đọc (văn bản)</td><td>Giọng đọc Google Dịch qua Google Apps Script</td></tr>
     <tr><td>Dịch</td><td>Câu cần dịch (văn bản)</td><td>Google Apps Script (Google Dịch); nếu lỗi: Google Dịch hoặc MyMemory</td></tr>
     <tr><td>Nói · nhập bằng giọng</td><td>Giọng nói của bạn</td><td>Tính năng nhận dạng giọng nói của trình duyệt (ví dụ Chrome dùng Google)</td></tr>
-    <tr><td>Dịch ảnh</td><td>Ảnh chụp hoặc ảnh chọn</td><td>Google Apps Script → nhận dạng chữ bằng Google Drive; xóa ảnh ngay sau khi nhận dạng, không lưu giữ</td></tr>
+    <tr><td>Dịch ảnh</td><td>Chữ đọc được từ ảnh (không gửi ảnh)</td><td>Nhận dạng chữ ngay trên điện thoại; chỉ gửi chữ để dịch. Chỉ khi máy không chạy được bộ nhận dạng, ảnh mới được gửi tới Google Apps Script → Google Drive để nhận dạng, xóa ngay sau đó và không lưu giữ</td></tr>
     <tr><td>Tải danh sách câu</td><td>Không gửi gì (chỉ tải về)</td><td>Google Apps Script (Google Sheets)</td></tr>
     <tr><td>Phông chữ</td><td>Không gửi gì (chỉ tải về)</td><td>Google Fonts</td></tr></table>
   <p class="note">Việc xử lý thông tin của từng dịch vụ tuân theo chính sách của công ty đó: Google (https://policies.google.com/privacy), MyMemory (https://mymemory.translated.net/doc/privacy.php)</p>
@@ -137,7 +137,7 @@
     <tr><td>Listen</td><td>The phrase to be read (text)</td><td>Google Translate voice via Google Apps Script</td></tr>
     <tr><td>Translate</td><td>The text to translate</td><td>Google Apps Script (Google Translate); on failure, Google Translate or MyMemory</td></tr>
     <tr><td>Speak / voice input</td><td>Your voice</td><td>Your browser's speech recognition (e.g., Chrome uses Google)</td></tr>
-    <tr><td>Photo translation</td><td>The photo you take or pick</td><td>Google Apps Script → text recognition with Google Drive; the photo file is deleted right after recognition and not kept</td></tr>
+    <tr><td>Photo translation</td><td>Text read from the photo (the photo itself is not sent)</td><td>Text is recognized on your phone; only the text is sent for translation. Only if the on-device engine cannot run is the photo sent to Google Apps Script → Google Drive for recognition, then deleted right away and not kept</td></tr>
     <tr><td>Phrase list</td><td>Nothing (download only)</td><td>Google Apps Script (Google Sheets)</td></tr>
     <tr><td>Fonts</td><td>Nothing (download only)</td><td>Google Fonts</td></tr></table>
   <p class="note">Each service handles data under its own policy: Google (https://policies.google.com/privacy), MyMemory (https://mymemory.translated.net/doc/privacy.php)</p>
@@ -186,7 +186,7 @@
     <tr><td>听发音</td><td>要朗读的句子（文本）</td><td>经 Google Apps Script 调用 Google 翻译语音</td></tr>
     <tr><td>翻译</td><td>要翻译的文本</td><td>Google Apps Script（Google 翻译）；失败时为 Google 翻译或 MyMemory</td></tr>
     <tr><td>说话 · 语音输入</td><td>您的语音</td><td>浏览器自带的语音识别（如 Chrome 使用 Google）</td></tr>
-    <tr><td>拍照翻译</td><td>拍摄或选择的照片</td><td>Google Apps Script → Google Drive 文字识别；识别后立即删除照片，不予保存</td></tr>
+    <tr><td>拍照翻译</td><td>从照片中读取的文字（不发送照片本身）</td><td>文字识别在手机上完成，仅发送文字用于翻译。仅当设备无法运行识别引擎时，才将照片发送至 Google Apps Script → Google Drive 识别，识别后立即删除，不予保存</td></tr>
     <tr><td>获取句子列表</td><td>无（仅下载）</td><td>Google Apps Script（Google 表格）</td></tr>
     <tr><td>字体</td><td>无（仅下载）</td><td>Google Fonts</td></tr></table>
   <p class="note">各服务按其自身政策处理信息：Google（https://policies.google.com/privacy）、MyMemory（https://mymemory.translated.net/doc/privacy.php）</p>
@@ -235,7 +235,7 @@
     <tr><td>音声を聞く</td><td>読み上げる文（テキスト）</td><td>Google Apps Script 経由の Google 翻訳音声</td></tr>
     <tr><td>翻訳</td><td>翻訳する文（テキスト）</td><td>Google Apps Script（Google 翻訳）、失敗時は Google 翻訳または MyMemory</td></tr>
     <tr><td>話す・音声入力</td><td>話した音声</td><td>ブラウザの音声認識機能（例：Chrome は Google）</td></tr>
-    <tr><td>写真翻訳</td><td>撮影または選択した写真</td><td>Google Apps Script → Google Drive の文字認識。認識直後に写真ファイルを削除し、保管しません</td></tr>
+    <tr><td>写真翻訳</td><td>写真から読み取った文字（写真そのものは送信しません）</td><td>文字認識はスマホ内で処理し、読み取った文字だけを翻訳に使用。端末で認識エンジンが使えない場合に限り、写真を Google Apps Script → Google Drive の文字認識へ送り、認識直後に削除して保管しません</td></tr>
     <tr><td>文リストの取得</td><td>なし（ダウンロードのみ）</td><td>Google Apps Script（Google スプレッドシート）</td></tr>
     <tr><td>フォント</td><td>なし（ダウンロードのみ）</td><td>Google Fonts</td></tr></table>
   <p class="note">各サービスでの情報の取り扱いは、それぞれの方針に従います：Google（https://policies.google.com/privacy）、MyMemory（https://mymemory.translated.net/doc/privacy.php）</p>

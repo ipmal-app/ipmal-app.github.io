@@ -697,7 +697,7 @@
           <label class="btn file photo-btn">${t('photoGal')}<input type="file" id="pFile" accept="image/*"></label>
         </div>
         <p class="hint" id="pStatus">${SP.photo ? t('ocrLines', { n: SP.photo.length }) : ''}</p>
-        ${SP.img ? `<img class="photo-prev" src="${SP.img}" alt="">` : ''}
+        <div id="pView">${photoViewHtml()}</div>
         <p class="note">${t('ocrNote')}</p>
       </div>
       <div id="pResult"></div>`;
@@ -707,7 +707,40 @@
     $('#pTl').value = SP.ptl;
     $('#pTl').onchange = e => { SP.ptl = e.target.value; };
     ['#pCam', '#pFile'].forEach(id => { $(id).onchange = e => { const f = e.target.files[0]; if (f) runOcr(f); e.target.value = ''; }; });
+    bindPhotoView();
     drawPhotoResult();
+  }
+  /* 사진 보기: 번역이 덮인 사진 ↔ 원문 사진 (사진을 눌러도 전환) + 이미지 저장 */
+  function photoViewHtml() {
+    if (!SP.img) return '';
+    const tr = !!SP.imgTr, showTr = tr && SP.view !== 'orig';
+    return `${tr ? `<div class="seg pv-seg"><button type="button" data-pv="tr" class="${showTr ? 'on' : ''}">${t('viewTr')}</button><button type="button" data-pv="orig" class="${showTr ? '' : 'on'}">${t('viewOrig')}</button></div>` : ''}
+      <img class="photo-prev${tr ? ' tappable' : ''}" id="pImg" src="${showTr ? SP.imgTr : SP.img}" alt="">
+      ${tr ? `<div class="pv-tools"><span class="note">${t('tapToSwitch')}</span><a class="btn" id="pSaveImg" download="ipmal-photo.jpg" href="${SP.imgTr}">⬇ ${t('saveImg')}</a></div>` : ''}`;
+  }
+  function bindPhotoView() {
+    const box = $('#pView'); if (!box) return;
+    box.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { SP.view = b.dataset.pv; box.innerHTML = photoViewHtml(); bindPhotoView(); });
+    const im = $('#pImg');
+    if (im && SP.imgTr) im.onclick = () => { SP.view = SP.view === 'orig' ? 'tr' : 'orig'; box.innerHTML = photoViewHtml(); bindPhotoView(); };
+  }
+  function drawPhotoView() { const box = $('#pView'); if (box) { box.innerHTML = photoViewHtml(); bindPhotoView(); } }
+  const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('image decode failed')); im.src = src; });
+  /* 여러 줄 번역: 한 번에 보내고, 줄 수가 어긋나면 줄마다 번역 */
+  async function translateLines(lines, sl, tl) {
+    if (!lines.length) return [];
+    if (sl === tl) return lines.slice();
+    const from = sl === 'auto' ? '' : sl;
+    try {
+      const r = await Translator.translate(lines.join('\n'), from, tl, proxyUrl());
+      const parts = String(r.text || '').split(/\r?\n/).map(x => x.trim());
+      if (parts.length === lines.length) return parts;
+    } catch (e) {}
+    const out = new Array(lines.length).fill('');
+    let i = 0;
+    const run = async () => { while (i < lines.length) { const k = i++; try { out[k] = (await Translator.translate(lines[k], from, tl, proxyUrl())).text; } catch (e) { out[k] = ''; } } };
+    await Promise.all([run(), run(), run(), run()]);
+    return out;
   }
   /* 사진 축소(긴 변 1600px, JPEG) → base64 */
   function shrinkImage(file) {
@@ -725,28 +758,52 @@
     });
   }
   async function runOcr(file) {
-    const st0 = $('#pStatus'); st0.textContent = t('ocrRunning'); st0.classList.add('busy');
-    SP.photo = null; $('#pResult').innerHTML = '';
+    const st0 = $('#pStatus'); st0.textContent = t('ocrPrep'); st0.classList.add('busy');
+    SP.photo = null; SP.imgTr = null; SP.view = 'tr'; $('#pResult').innerHTML = '';
+    const status = txt => { const el = $('#pStatus'); if (el) el.textContent = txt; };
     try {
       const dataUrl = await shrinkImage(file);
-      SP.img = dataUrl;
-      const prev = document.querySelector('.photo-prev');
-      if (prev) prev.src = dataUrl; else st0.insertAdjacentHTML('afterend', `<img class="photo-prev" src="${dataUrl}" alt="">`);
-      const r = await fetch(proxyUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'ocr', image: dataUrl.split(',')[1], mime: 'image/jpeg', sl: SP.psl, tl: SP.ptl }) });
-      if (!r.ok) throw new Error('GAS HTTP ' + r.status);
-      const body = await r.text();
-      let d; try { d = JSON.parse(body); } catch (e) { throw new Error('GAS: OCR API not deployed'); }
-      if (!d.ok) throw new Error(d.error);
-      SP.photo = d.lines.map(x => ({ ...x, saved: false })); SP.photoTl = SP.ptl; SP.photoSl = SP.psl;
+      SP.img = dataUrl; drawPhotoView();
+      const sl = SP.psl, tl = SP.ptl;
+      let segs;
+      try {
+        segs = await OCR.recognize(dataUrl, sl, L().target, (stt, p) => {
+          const pct = Math.round(p * 100);
+          status(/recogniz/i.test(stt) ? `${t('ocrRead')} ${pct}%` : `${t('ocrPrep')} ${pct}%`);
+        });
+      } catch (e) {
+        return await runOcrServer(dataUrl);   // 엔진을 못 불러오면 기존 방식(구글 드라이브)으로
+      }
+      const todo = segs.filter(x => !x.keep);
+      if (!todo.length) { status(t('ocrNone')); return; }
+      status(t('ocrTr'));
+      const dst = await translateLines(todo.map(x => x.src), sl, tl);
+      todo.forEach((x, k) => { x.dst = dst[k]; });
+      SP.photo = todo.map(x => ({ src: x.src, dst: x.dst || '', saved: false })); SP.photoTl = tl; SP.photoSl = sl;
+      const img = await loadImg(dataUrl);
+      SP.imgTr = OCR.paint(img, segs).toDataURL('image/jpeg', 0.9);
       if (!$('#view-speak').classList.contains('active') || SP.mode !== 'photo') return;
-      $('#pStatus').textContent = SP.photo.length ? t('ocrLines', { n: SP.photo.length }) : t('ocrNone');
-      drawPhotoResult();
-      if (SP.psl !== 'auto') SP.photo.slice(0, 6).forEach(x => TTS.prefetch(x.src, SP.psl, proxyUrl()));
+      status(t('ocrLines', { n: SP.photo.length }));
+      drawPhotoView(); drawPhotoResult();
+      if (sl !== 'auto') SP.photo.slice(0, 6).forEach(x => TTS.prefetch(x.src, sl, proxyUrl()));
     } catch (e) {
-      const el = $('#pStatus'); if (el) el.textContent = '';
+      status('');
       toast(t('ocrFail', { m: (e && e.message) || e }), 'err');
     } finally { const el = $('#pStatus'); if (el) el.classList.remove('busy'); }
+  }
+  /* 예비 경로: 사진을 서버(구글 드라이브)에서 읽어 줄별 목록으로만 표시 */
+  async function runOcrServer(dataUrl) {
+    $('#pStatus').textContent = t('ocrRunning');
+    const r = await fetch(proxyUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'ocr', image: dataUrl.split(',')[1], mime: 'image/jpeg', sl: SP.psl, tl: SP.ptl }) });
+    if (!r.ok) throw new Error('GAS HTTP ' + r.status);
+    const body = await r.text();
+    let d; try { d = JSON.parse(body); } catch (e) { throw new Error('GAS: OCR API not deployed'); }
+    if (!d.ok) throw new Error(d.error);
+    SP.photo = d.lines.map(x => ({ ...x, saved: false })); SP.photoTl = SP.ptl; SP.photoSl = SP.psl;
+    if (!$('#view-speak').classList.contains('active') || SP.mode !== 'photo') return;
+    $('#pStatus').textContent = SP.photo.length ? t('ocrLines', { n: SP.photo.length }) : t('ocrNone');
+    drawPhotoResult();
   }
   function drawPhotoResult() {
     const box = $('#pResult'); if (!box || !SP.photo || !SP.photo.length) return;

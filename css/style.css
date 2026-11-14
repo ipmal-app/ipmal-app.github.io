@@ -684,3 +684,8 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .sp-pron { font-size: 14px; font-style: italic; color: var(--blue); margin-top: 8px; text-align: center; max-width: 86vw; }
 .sp-pron + .sp-mean { margin-top: 2px; }
 .sp-mascot .mbubble { max-width: 82vw; }
+
+/* ===== 사진 번역: 사진 위에 번역 덮기 ===== */
+.pv-seg { margin: 10px auto 6px; justify-content: center; }
+.photo-prev.tappable { cursor: pointer; }
+.pv-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
