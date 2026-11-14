@@ -167,6 +167,17 @@ const OCR = (() => {
       if (need > x1) {
         let room = W - 1 - pad;
         segs.forEach(o => { if (o !== s && o.x0 >= s.x1 && o.y0 < s.y1 && o.y1 > s.y0) room = Math.min(room, o.x0 - pad * 2); });
+        // 인식 못 한 글자(가격 등)가 오른쪽에 있을 수 있어 실제 픽셀도 확인: 배경과 다른 점이 나오면 그 앞에서 멈춤
+        const bg = avgColor(px, W, H, x0, y0, x1, y1), lim = Math.min(Math.ceil(need), room);
+        const ys = Math.max(1, Math.round((s.y1 - s.y0) / 10));
+        for (let x = x1 + 1; x <= lim; x++) {
+          let ink = false;
+          for (let y = Math.round(sy0); y <= sy1 && !ink; y += ys) {
+            const i = (y * W + x) * 4;
+            ink = Math.abs(px[i] - bg[0]) + Math.abs(px[i + 1] - bg[1]) + Math.abs(px[i + 2] - bg[2]) > 120;
+          }
+          if (ink) { room = Math.min(room, x - pad * 2); break; }
+        }
         x1 = Math.round(Math.max(x1, Math.min(need, room)));
       }
       const [r, g, b] = avgColor(px, W, H, x0, y0, x1, y1);
