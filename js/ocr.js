@@ -66,7 +66,7 @@ const OCR = (() => {
     if (m) return { text: m[1], cut: true };
     return { text: t.replace(/^[*★☆%“"'‘’`]+/u, ''), cut: false };
   }
-  function segmentsOf(data) {
+  function segmentsOf(data, loose) {   // loose: 빠진 줄 다시 읽기(사진 위 글자라 신뢰도가 낮게 나옴) → 기준 완화
     const segs = [];
     (data.lines || []).forEach(line => {
       const words = (line.words || []).filter(w => w.text && w.text.trim());
@@ -80,7 +80,7 @@ const OCR = (() => {
         if (!text || LEADER.test(text)) { flush(); return; }                 // 점선 = 나누는 자리
         const num = NUM.test(text);
         if (!num && !/[\p{L}\d&]/u.test(text)) { if (cur) cur.x1 = Math.max(cur.x1, w.bbox.x1); return; }   // 기호만(★ – 등): 글자로는 빼고 간격 계산엔 포함
-        if (w.confidence < 40 && !num) { flush(); return; }                 // 무늬를 글자로 잘못 읽음
+        if (w.confidence < (loose ? 30 : 40) && !num) { flush(); return; }  // 무늬를 글자로 잘못 읽음
         const cyw = (w.bbox.y0 + w.bbox.y1) / 2;
         if (cur && (num || cur.num || w.bbox.x0 - cur.x1 > lh * 1.0 || Math.abs(cyw - (cur.y0 + cur.y1) / 2) > lh * 0.6)) flush();
         if (!cur) cur = { x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1, words: [], conf: [], num };
@@ -93,7 +93,7 @@ const OCR = (() => {
     });
     return segs.map(s => {
       // 맨 앞 별표(★)를 글자로 잘못 읽은 한 글자(X, x, 4 …) 제거
-      if (!s.num && s.words.length >= 3 && /^[XxK%*¥®©4]\W*$/u.test(s.words[0]) && !CJK.test(s.words.join(''))) { s.words.shift(); s.conf.shift(); }
+      if (!s.num && s.words.length >= 2 && /^[XxKk%*¥®©4]\W*$/u.test(s.words[0]) && !CJK.test(s.words.join(''))) { s.words.shift(); s.conf.shift(); }
       const text = tidy(s.words.join(' '));
       const conf = s.conf.reduce((a, b) => a + b, 0) / s.conf.length;
       const nL = text.replace(/[^\p{L}]/gu, '').length;
@@ -103,7 +103,7 @@ const OCR = (() => {
       if (s.keep) return s.conf >= 50 && /\d{2}/.test(s.src);               // 가격처럼 보이는 숫자만 (덮지 않으므로 표시용)
       const nL = s.src.replace(/[^\p{L}]/gu, '').length, cjk = CJK.test(s.src);
       if (cjk) return s.conf >= 45;
-      return nL >= 2 && (s.conf >= (nL <= 3 ? 70 : 50));                    // 짧은 조각일수록 엄격하게
+      return nL >= 2 && (s.conf >= (nL <= 3 ? 70 : loose ? 35 : 50));      // 짧은 조각일수록 엄격하게
     });
   }
 
@@ -174,15 +174,31 @@ const OCR = (() => {
       const ext = (s.x0 - l) + (r - s.x1);
       if (ext > h * 0.9) cand.push({ s, l, r, ext });
     });
+    // 통째로 빠진 줄 찾기: 가격은 읽혔는데 같은 줄 왼쪽(메뉴 이름 자리)에 글자가 없으면 그 자리를 따로 다시 읽음
+    //  (사진·무늬 위에 쓰인 메뉴 이름을 1·2차에서 놓치는 경우 — 예: 피자 사진 위 "KHOAI TÂY CHIÊN")
+    const nL = o => o.src.replace(/[^\p{L}]/gu, '').length;
+    const names = segs.filter(o => !o.keep && (nL(o) >= 6 || o.src.trim().split(/\s+/).length >= 2));
+    segs.filter(o => o.keep && /^\d{1,3}([.,]\d{3})+[đ₫d]?$/.test(o.src.trim())).forEach(P => {
+      const h = P.y1 - P.y0, cy = (P.y0 + P.y1) / 2;
+      const near = names.filter(n => Math.abs((n.y0 + n.y1) / 2 - cy) < h * 12 && n.x1 < P.x0 && P.x0 - n.x0 < W * 0.62).map(n => n.x0).sort((a, b) => a - b);
+      if (near.length < 2) return;
+      const colL = near[near.length >> 1], mid = colL + (P.x0 - colL) * 0.5;
+      const row = segs.filter(o => o !== P && Math.abs((o.y0 + o.y1) / 2 - cy) < h * 0.7 && o.x1 <= P.x0 + 2);
+      if (row.some(o => !o.keep && o.x0 < mid && nL(o) >= 3)) return;               // 이미 이름이 있음
+      const unit = row.filter(o => !o.keep && o.x0 >= mid).sort((a, b) => a.x0 - b.x0)[0];   // 단위(ĐĨA 등) 앞까지
+      const l = Math.max(0, Math.round(colL - h * 0.8)), r = Math.round((unit ? unit.x0 : P.x0) - h * 0.4);
+      if (r - l < h * 3) return;
+      cand.push({ s: { x0: l, x1: r, y0: P.y0, y1: P.y1, src: '', conf: 43, ghost: true }, l, r, ext: 1e9 });
+    });
     cand.sort((a, b) => b.ext - a.ext);
-    const todo = cand.slice(0, 30);
+    const todo = cand.slice(0, 40);
     if (!todo.length) return segs;
     await Promise.all(ws.map(w => w.setParameters({ tessedit_pageseg_mode: '7' })));
     let k = 0;
     const rep = new Map();
     const run = async w => {
       while (k < todo.length) {
-        const c = todo[k++], s = c.s, h = s.y1 - s.y0, pad = Math.round(h * 0.35), padY = Math.round(h * 0.2);
+        const c = todo[k++], s = c.s, h = s.y1 - s.y0, pad = Math.round(h * 0.35), padY = Math.round(h * (s.ghost ? 0.45 : 0.2));   // 빠진 줄: 성조 부호까지 들어오게 위아래 여유
         const X0 = Math.max(0, c.l - pad), Y0 = Math.max(0, s.y0 - padY), X1 = Math.min(W, c.r + pad), Y1 = Math.min(H, s.y1 + padY);
         const z = Math.max(1, Math.min(3, 44 / h));   // 글자 높이 약 44px로 확대 → 성조 부호 인식 향상
         const cc = document.createElement('canvas'); cc.width = Math.round((X1 - X0) * z); cc.height = Math.round((Y1 - Y0) * z);
@@ -190,9 +206,9 @@ const OCR = (() => {
         try {
           const { data } = await w.recognize(cc, {}, { blocks: true, text: true });
           if (!data.lines && data.blocks) { data.lines = []; data.blocks.forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l => data.lines.push(l)))); }
-          const ns = segmentsOf(data).map(n => Object.assign(n, { x0: Math.round(X0 + n.x0 / z), x1: Math.round(X0 + n.x1 / z), y0: Math.round(Y0 + n.y0 / z), y1: Math.round(Y0 + n.y1 / z) }))
-            .filter(n => (n.keep || plausible(n, lang)) && Math.abs((n.y0 + n.y1) / 2 - (s.y0 + s.y1) / 2) < h * 0.45 && (n.y1 - n.y0) < h * 1.5)   // 같은 줄만
-            .map(n => Object.assign(n, { y0: Math.max(n.y0, s.y0 - Math.round(h * 0.1)), y1: Math.min(n.y1, s.y1 + Math.round(h * 0.1)) }));   // 높이는 원래 줄에 맞춤
+          const ns = segmentsOf(data, s.ghost).map(n => Object.assign(n, { x0: Math.round(X0 + n.x0 / z), x1: Math.round(X0 + n.x1 / z), y0: Math.round(Y0 + n.y0 / z), y1: Math.round(Y0 + n.y1 / z) }))
+            .filter(n => (n.keep || plausible(n, lang)) && Math.abs((n.y0 + n.y1) / 2 - (s.y0 + s.y1) / 2) < h * (s.ghost ? 0.7 : 0.45) && (n.y1 - n.y0) < h * (s.ghost ? 2.3 : 1.5))   // 같은 줄만(빠진 줄은 가격 숫자 높이 기준이라 여유)
+            .map(n => s.ghost ? n : Object.assign(n, { y0: Math.max(n.y0, s.y0 - Math.round(h * 0.1)), y1: Math.min(n.y1, s.y1 + Math.round(h * 0.1)) }));   // 높이는 원래 줄에 맞춤
           const letters = a => a.filter(n => !n.keep).reduce((t, n) => t + n.src.replace(/[^\p{L}]/gu, '').length, 0);
           const good = ns.filter(n => !n.keep), mc = good.length ? good.reduce((t, n) => t + n.conf, 0) / good.length : 0;
           if (letters(ns) > letters([s]) && mc >= Math.min(80, s.conf - 8)) rep.set(s, good);   // 무늬를 글자로 읽어 길어진 경우는 버림
@@ -202,6 +218,7 @@ const OCR = (() => {
     await Promise.all(ws.map(run));
     const out = [];
     segs.forEach(s => { if (rep.has(s)) rep.get(s).forEach(n => { if (!out.some(o => o !== s && overlap(o, n) > 0.5)) out.push(n); }); else out.push(s); });
+    todo.forEach(c => { if (c.s.ghost && rep.has(c.s)) rep.get(c.s).forEach(n => { if (!out.some(o => overlap(o, n) > 0.3)) out.push(n); }); });
     // 새로 넓힌 조각과 겹치는 다른 조각(같은 줄 조각난 부분) 정리
     return out.filter((s, i) => !out.some((o, j) => j !== i && !s.keep && !o.keep && overlap(o, s) > 0.6 && (o.x1 - o.x0) > (s.x1 - s.x0)));
   }
