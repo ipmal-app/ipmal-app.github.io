@@ -716,7 +716,7 @@
     const tr = !!SP.imgTr, showTr = tr && SP.view !== 'orig';
     return `${tr ? `<div class="seg pv-seg"><button type="button" data-pv="tr" class="${showTr ? 'on' : ''}">${t('viewTr')}</button><button type="button" data-pv="orig" class="${showTr ? '' : 'on'}">${t('viewOrig')}</button></div>` : ''}
       <img class="photo-prev${tr ? ' tappable' : ''}" id="pImg" src="${showTr ? SP.imgTr : SP.img}" alt="">
-      ${tr ? `<div class="pv-tools"><span class="note">${t('tapToSwitch')}</span><a class="btn" id="pSaveImg" download="ipmal-photo.jpg" href="${SP.imgTr}">⬇ ${t('saveImg')}</a></div>` : ''}`;
+      ${tr ? `<div class="pv-tools"><span class="note">${t('tapToSwitch')}</span><a class="btn" id="pSaveImg" download="ipmal-photo.png" href="${SP.imgTr}">⬇ ${t('saveImg')}</a></div>` : ''}`;
   }
   function bindPhotoView() {
     const box = $('#pView'); if (!box) return;
@@ -742,12 +742,12 @@
     await Promise.all([run(), run(), run(), run()]);
     return out;
   }
-  /* 사진 축소(긴 변 1600px, JPEG) → base64 */
+  /* 사진 축소(긴 변 2400px, JPEG) → base64 */
   function shrinkImage(file) {
     return new Promise((res, rej) => {
       const url = URL.createObjectURL(file), img = new Image();
       img.onload = () => {
-        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const k = Math.min(1, 2400 / Math.max(img.width, img.height));   // 글자 인식 정확도(작은 글씨·성조 부호)를 위해 2400px
         const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
         cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
         URL.revokeObjectURL(url);
@@ -759,17 +759,19 @@
   }
   async function runOcr(file) {
     const st0 = $('#pStatus'); st0.textContent = t('ocrPrep'); st0.classList.add('busy');
+    [SP.img, SP.imgTr].forEach(u => { if (u && u.startsWith('blob:')) URL.revokeObjectURL(u); });   // 이전 사진 메모리 해제
     SP.photo = null; SP.imgTr = null; SP.view = 'tr'; $('#pResult').innerHTML = '';
     const status = txt => { const el = $('#pStatus'); if (el) el.textContent = txt; };
     try {
       const dataUrl = await shrinkImage(file);
-      SP.img = dataUrl; drawPhotoView();
+      // 화면·저장용은 원래 사진 그대로(축소·재압축 없음) — 글자 인식에만 축소본 사용
+      SP.img = URL.createObjectURL(file); drawPhotoView();
       const sl = SP.psl, tl = SP.ptl;
       let segs;
       try {
         segs = await OCR.recognize(dataUrl, sl, L().target, (stt, p) => {
           const pct = Math.round(p * 100);
-          status(/recogniz/i.test(stt) ? `${t('ocrRead')} ${pct}%` : `${t('ocrPrep')} ${pct}%`);
+          status(stt === 'refining' ? `${t('ocrFix')}…` : /recogniz/i.test(stt) ? `${t('ocrRead')} ${pct}%` : `${t('ocrPrep')} ${pct}%`);
         });
       } catch (e) {
         return await runOcrServer(dataUrl);   // 엔진을 못 불러오면 기존 방식(구글 드라이브)으로
@@ -780,8 +782,11 @@
       const dst = await translateLines(todo.map(x => x.src), sl, tl);
       todo.forEach((x, k) => { x.dst = dst[k]; });
       SP.photo = todo.map(x => ({ src: x.src, dst: x.dst || '', saved: false })); SP.photoTl = tl; SP.photoSl = sl;
-      const img = await loadImg(dataUrl);
-      SP.imgTr = OCR.paint(img, segs).toDataURL('image/jpeg', 0.9);
+      const [full, small] = await Promise.all([loadImg(SP.img), loadImg(dataUrl)]);
+      const cv = OCR.paint(full, segs, small.naturalWidth);
+      // PNG(무손실): JPEG로 다시 압축하면 번역 글자 가장자리가 번져 흐려짐
+      const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+      SP.imgTr = blob ? URL.createObjectURL(blob) : cv.toDataURL('image/png');
       if (!$('#view-speak').classList.contains('active') || SP.mode !== 'photo') return;
       status(t('ocrLines', { n: SP.photo.length }));
       drawPhotoView(); drawPhotoResult();

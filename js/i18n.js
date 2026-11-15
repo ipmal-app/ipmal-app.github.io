@@ -106,6 +106,7 @@ const I18N = (() => {
     ocrNote: ['사진 속 글자는 이 폰 안에서 읽고, 사진은 서버로 보내지 않습니다. 읽어낸 글자만 번역에 쓰입니다(인터넷 필요).', 'Chữ trong ảnh được đọc ngay trên điện thoại, ảnh không gửi lên máy chủ. Chỉ phần chữ được gửi đi để dịch (cần Internet).', 'Text is read on this phone; the photo is never uploaded. Only the recognized text is sent for translation (Internet required).', '照片中的文字在本机识别，照片不会上传。仅将识别出的文字用于翻译（需要联网）。', '写真の文字はこの端末内で読み取り、写真はサーバーに送りません。読み取った文字だけを翻訳に使います（ネット接続が必要）。'],
     ocrPrep: ['글자 인식 준비 중 (처음 한 번만 몇 MB 받음)', 'Đang chuẩn bị nhận dạng chữ (chỉ tải vài MB lần đầu)', 'Preparing text recognition (first time only, a few MB)', '正在准备文字识别（仅首次下载几MB）', '文字認識を準備中（初回のみ数MB取得）'],
     ocrRead: ['사진에서 글자 찾는 중', 'Đang tìm chữ trong ảnh', 'Finding text in the photo', '正在查找照片中的文字', '写真の文字を探しています'],
+    ocrFix: ['흐린 글자 다시 확인 중', 'Đang đọc lại chữ bị mờ', 'Re-checking unclear text', '正在重新识别模糊文字', '読みにくい文字を再確認中'],
     ocrTr: ['번역해서 사진 위에 쓰는 중…', 'Đang dịch và ghi lên ảnh…', 'Translating and writing onto the photo…', '正在翻译并写到照片上…', '翻訳して写真に書き込み中…'],
     viewTr: ['번역 보기', 'Xem bản dịch', 'Translated', '查看译文', '翻訳を表示'],
     viewOrig: ['원문 보기', 'Xem bản gốc', 'Original', '查看原文', '原文を表示'],
