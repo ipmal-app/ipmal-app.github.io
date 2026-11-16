@@ -264,6 +264,17 @@ const OCR = (() => {
   }
 
   /* ---------- 사진 위에 번역문 그리기 ---------- */
+  /* 바탕색: 상자 안·테두리 픽셀 중 가장 많은 색(글자·표 선은 소수라 빠짐) */
+  function bgColor(px, w, h, x0, y0, x1, y1) {
+    const bins = new Map(), sx = Math.max(1, Math.round((x1 - x0) / 60)), sy = Math.max(1, Math.round((y1 - y0) / 12));
+    for (let y = Math.max(0, y0); y <= Math.min(h - 1, y1); y += sy) for (let x = Math.max(0, x0); x <= Math.min(w - 1, x1); x += sx) {
+      const i = (y * w + x) * 4, key = (px[i] >> 4) << 8 | (px[i + 1] >> 4) << 4 | (px[i + 2] >> 4);
+      const b = bins.get(key); if (b) { b[0]++; b[1] += px[i]; b[2] += px[i + 1]; b[3] += px[i + 2]; } else bins.set(key, [1, px[i], px[i + 1], px[i + 2]]);
+    }
+    let best = null; bins.forEach(b => { if (!best || b[0] > best[0]) best = b; });
+    if (!best) return avgColor(px, w, h, x0, y0, x1, y1);
+    return [Math.round(best[1] / best[0]), Math.round(best[2] / best[0]), Math.round(best[3] / best[0])];
+  }
   function avgColor(px, w, h, x0, y0, x1, y1) {   // 상자 테두리 색의 중앙값(로고·무늬가 섞여도 배경색 유지)
     const R = [], G = [], B = [];
     const add = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; R.push(px[i]); G.push(px[i + 1]); B.push(px[i + 2]); };
@@ -299,29 +310,40 @@ const OCR = (() => {
     for (let i = 0; i < 12 && ratio(c, bg) < 4.5; i++) c = c.map(x => dark ? Math.round(x * 0.8) : Math.round(x + (255 - x) * 0.25));
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
-  function fit(ctx, text, w, h, family, maxSize) {
-    for (let size = Math.floor(Math.min(h * 0.82, maxSize || 1e9)); size >= 9; size--) {   // 한 줄로 맞추기
+  /* 상자(w×h)에 번역문 맞추기: 한 줄 → 안 되면 여러 줄(최대 maxN줄) 중 글자가 가장 크게 들어가는 쪽 */
+  function fit(ctx, text, w, h, family, maxSize, maxN) {
+    maxSize = maxSize || 1e9; maxN = Math.max(2, maxN || 2);
+    for (let size = Math.floor(Math.min(h * 0.82, maxSize)); size >= 9; size--) {   // 한 줄로 맞추기
       ctx.font = `700 ${size}px ${family}`;
       if (ctx.measureText(text).width <= w * 1.02) return { size, lines: [text] };
       if (size < h * 0.55) break;
     }
-    const words = text.split(/(\s+)/), cjk = CJK.test(text);   // 두 줄로 나누기
-    const units = cjk && words.length < 3 ? [...text] : words;
-    for (let size = Math.floor(h * 0.44); size >= 8; size--) {
+    const words = text.split(/(\s+)/);
+    const units = /[぀-ヿ㐀-鿿]/.test(text) ? [...text] : words;   // 중·일 글자는 글자 단위로, 한국어·그 밖은 띄어쓰기(낱말) 단위로 줄바꿈
+    const wrap = size => {
       ctx.font = `700 ${size}px ${family}`;
       const lines = []; let cur = '';
       units.forEach(u => { const tryS = cur + u; if (ctx.measureText(tryS.trim()).width > w && cur.trim()) { lines.push(cur.trim()); cur = u; } else cur = tryS; });
       if (cur.trim()) lines.push(cur.trim());
-      if (lines.length <= 2 && lines.every(l => ctx.measureText(l).width <= w * 1.02)) return { size, lines };
+      return lines;
+    };
+    let best = null;
+    for (let n = 2; n <= maxN; n++) {
+      for (let size = Math.floor(Math.min(h * 0.88 / n, maxSize)); size >= 8; size--) {
+        const lines = wrap(size);
+        if (lines.length <= n && lines.every(l => ctx.measureText(l).width <= w * 1.02)) { if (!best || size > best.size) best = { size, lines }; break; }
+      }
     }
+    if (best) return best;
     ctx.font = `700 8px ${family}`;
-    return { size: 8, lines: [text] };
+    return { size: 8, lines: wrap(8) };
   }
+
   /* img: 원본 사진(Image, 원래 해상도), segs: 글자 인식한 사진(긴 변 2400px) 기준 좌표, ocrW: 그 사진의 가로 크기
      → 번역이 덮인 canvas. 선명도를 위해 원래 사진 해상도(긴 변 최대 2560px)로 다시 그림 */
   const MAX_SIDE = 2560;
   function paint(img, segs0, ocrW) {
-    const nw = img.naturalWidth, nh = img.naturalHeight;
+    const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;   // 사진(Image) 또는 문서 쪽 그림(canvas)
     const z = Math.min(1, MAX_SIDE / Math.max(nw, nh));
     const W = Math.round(nw * z), H = Math.round(nh * z), k = W / (ocrW || nw);
     const segs = segs0.map(s => Object.assign({}, s, { x0: Math.round(s.x0 * k), y0: Math.round(s.y0 * k), x1: Math.min(W - 1, Math.round(s.x1 * k)), y1: Math.min(H - 1, Math.round(s.y1 * k)) }));
@@ -339,8 +361,8 @@ const OCR = (() => {
       if (s.keep || !s.dst) return;
       let sy0 = s.y0, sy1 = s.y1;
       if (!s.lines && sy1 - sy0 < medH * 0.95 && sy1 - sy0 > medH * 0.55) { const d = (medH - (sy1 - sy0)) / 2; sy0 -= d; sy1 += d; }
-      const h = sy1 - sy0, pad = Math.round(h * 0.18);
-      const x0 = Math.max(0, s.x0 - pad), y0 = Math.max(0, Math.round(sy0 - pad)), y1 = Math.min(H - 1, Math.round(sy1 + pad));
+      const h = sy1 - sy0, pad = Math.round(h * (s.tight ? 0.06 : 0.18));   // 문서(표)는 칸 선을 덮지 않게 여백 최소
+      let x0 = Math.max(0, s.x0 - pad), y0 = Math.max(0, Math.round(sy0 - pad)), y1 = Math.min(H - 1, Math.round(sy1 + pad));
       let x1 = Math.min(W - 1, s.x1 + pad);
       // 번역문이 원문보다 길면 같은 줄 오른쪽 빈 공간(다음 글자 전까지)으로 넓힘
       ctx.font = `700 ${Math.floor(h * 0.9)}px ${family}`;
@@ -363,7 +385,16 @@ const OCR = (() => {
         const want = need > s.x1 && runEnd > s.x1 + 2 && runEnd - need < hh * 3 ? Math.max(need, runEnd + pad) : need;   // 사진·무늬까지 길게 덮지 않음
         x1 = Math.round(Math.max(x1, Math.min(want, room)));
       }
-      const [r, g, b] = avgColor(px, W, H, x0, y0, x1, y1);
+      if (s.tight) {   // 문서(표): 상자 안에 걸친 칸 선(가로·세로 줄)은 덮지 않도록 상자를 줄 안쪽으로
+        const dark = i => px[i] + px[i + 1] + px[i + 2] < 420;
+        // 선 = 끊김 없이 길게 이어진 어두운 줄(글자는 글자 사이가 비어 있어 해당 안 됨)
+        const rowRule = y => { let run = 0, best = 0; for (let x = x0; x <= x1; x++) { if (dark((y * W + x) * 4)) { if (++run > best) best = run; } else run = 0; } return best > (x1 - x0) * 0.7; };
+        const colRule = x => { let run = 0, best = 0; for (let y = y0; y <= y1; y++) { if (dark((y * W + x) * 4)) { if (++run > best) best = run; } else run = 0; } return best > (y1 - y0) * 0.85; };
+        const my = (y0 + y1) / 2, mx = (x0 + x1) / 2;
+        for (let y = y0; y <= y1; y++) if (rowRule(y)) { if (y < my) y0 = y + 2; else { y1 = y - 1; break; } }
+        for (let x = x0; x <= x1; x++) if (colRule(x)) { if (x < mx) x0 = x + 2; else { x1 = x - 1; break; } }
+      }
+      const [r, g, b] = s.tight ? bgColor(px, W, H, x0, y0, x1, y1) : avgColor(px, W, H, x0, y0, x1, y1);   // 문서: 칸 안 가장 많은 색 / 사진: 테두리 중앙값
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
       ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},1)`;
       const rr = Math.min(8 * k, h * 0.25);
@@ -376,7 +407,7 @@ const OCR = (() => {
       let hl = h / (s.lines || 1);
       if (medH && hl > medH * 1.45 && em < hl * 0.8) hl = Math.max(medH, em);   // 위아래로 크게 잡힌 상자 보정(제목처럼 실제로 큰 글자는 유지)
       else if (medH && hl >= medH * 0.55 && hl <= medH * 1.45) hl = refH;          // 본문 크기 글자는 같은 크기로 통일(성조 부호 유무로 상자 높이가 달라짐)
-      const f = fit(ctx, s.dst, bw, bh, family, hl * 0.92);   // 원문 글자보다 커지지 않게
+      const f = fit(ctx, s.dst, bw, bh, family, hl * 0.92, Math.max(2, (s.lines || 1) + 1));   // 원문 글자보다 커지지 않게, 여러 줄 글은 줄 수만큼
       ctx.fillStyle = readable(inkColor(px, W, s, [r, g, b]), [r, g, b]) || (lum > 140 ? '#14181F' : '#FFFFFF');
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
       ctx.font = `700 ${f.size}px ${family}`;

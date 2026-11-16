@@ -634,7 +634,7 @@
   /* =====================================================
    * 2-1. 말하기 번역 (뜻 언어로 말하기 → 학습 언어로 번역)
    * ===================================================== */
-  const SP = { rev: false, busy: false, last: null, mode: 'voice', psl: null, ptl: null, photo: null, img: '' };
+  const SP = { rev: false, busy: false, last: null, mode: 'voice', psl: null, ptl: null, photo: null, img: '', pages: null, page: 0 };
   function spDir() { const s = L(); return SP.rev ? { from: s.target, to: s.native } : { from: s.native, to: s.target }; }
 
   R.speak = function () {
@@ -695,6 +695,7 @@
         <div class="photo-btns">
           <label class="btn blue file photo-btn">${t('photoCam')}<input type="file" id="pCam" accept="image/*" capture="environment"></label>
           <label class="btn file photo-btn">${t('photoGal')}<input type="file" id="pFile" accept="image/*"></label>
+          <label class="btn file photo-btn wide">${t('photoDoc')}<input type="file" id="pPdf" accept="application/pdf,.pdf"></label>
         </div>
         <p class="hint" id="pStatus">${SP.photo ? t('ocrLines', { n: SP.photo.length }) : ''}</p>
         <div id="pView">${photoViewHtml()}</div>
@@ -706,7 +707,11 @@
     $('#pSl').onchange = e => { SP.psl = e.target.value; };
     $('#pTl').value = SP.ptl;
     $('#pTl').onchange = e => { SP.ptl = e.target.value; };
-    ['#pCam', '#pFile'].forEach(id => { $(id).onchange = e => { const f = e.target.files[0]; if (f) runOcr(f); e.target.value = ''; }; });
+    ['#pCam', '#pFile', '#pPdf'].forEach(id => { $(id).onchange = e => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) runPdf(f); else runOcr(f);
+    }; });
     bindPhotoView();
     drawPhotoResult();
   }
@@ -714,15 +719,54 @@
   function photoViewHtml() {
     if (!SP.img) return '';
     const tr = !!SP.imgTr, showTr = tr && SP.view !== 'orig';
+    const P = SP.pages, np = P ? P.length : 0;
+    const nav = np > 1 || (SP.docTotal || 0) > 1 ? `<div class="pv-nav"><button type="button" class="ic" data-pg="-1" ${SP.page > 0 ? '' : 'disabled'}>‹</button>
+        <span>${t('pageOf', { n: SP.page + 1, t: SP.docTotal || np })}</span>
+        <button type="button" class="ic" data-pg="1" ${SP.page < np - 1 ? '' : 'disabled'}>›</button></div>` : '';
+    const name = P ? `ipmal-doc-p${SP.page + 1}.png` : 'ipmal-photo.png';
     return `${tr ? `<div class="seg pv-seg"><button type="button" data-pv="tr" class="${showTr ? 'on' : ''}">${t('viewTr')}</button><button type="button" data-pv="orig" class="${showTr ? '' : 'on'}">${t('viewOrig')}</button></div>` : ''}
-      <img class="photo-prev${tr ? ' tappable' : ''}" id="pImg" src="${showTr ? SP.imgTr : SP.img}" alt="">
-      ${tr ? `<div class="pv-tools"><span class="note">${t('tapToSwitch')}</span><a class="btn" id="pSaveImg" download="ipmal-photo.png" href="${SP.imgTr}">⬇ ${t('saveImg')}</a></div>` : ''}`;
+      ${nav}
+      <img class="photo-prev${tr ? ' tappable' : ''}${P ? ' doc' : ''}" id="pImg" src="${showTr ? SP.imgTr : SP.img}" alt="">
+      ${tr ? `<div class="pv-tools"><span class="note">${t('tapToSwitch')}</span><button type="button" class="btn" id="pZoom">🔍 ${t('zoomView')}</button><a class="btn" id="pSaveImg" download="${name}" href="${SP.imgTr}">⬇ ${t('saveImg')}</a>${P && SP.docDone ? `<button type="button" class="btn blue" id="pSavePdf">⬇ ${t('savePdf')}</button>` : ''}</div>` : ''}`;
   }
   function bindPhotoView() {
     const box = $('#pView'); if (!box) return;
     box.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { SP.view = b.dataset.pv; box.innerHTML = photoViewHtml(); bindPhotoView(); });
+    box.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => showPage(SP.page + +b.dataset.pg));
+    const zb = $('#pZoom'); if (zb) zb.onclick = () => openZoom(SP.view === 'orig' ? SP.img : SP.imgTr);
+    const sp = $('#pSavePdf');
+    if (sp) sp.onclick = async () => {
+      sp.disabled = true;
+      try {
+        const blob = await PDFDOC.toPdf(SP.pages.map(p => p.imgTr || p.img));
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = (SP.docName || 'document').replace(/\.pdf$/i, '') + '_' + (SP.photoTl || SP.ptl) + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      } catch (e) { toast(t('ocrFail', { m: (e && e.message) || e }), 'err'); }
+      sp.disabled = false;
+    };
     const im = $('#pImg');
     if (im && SP.imgTr) im.onclick = () => { SP.view = SP.view === 'orig' ? 'tr' : 'orig'; box.innerHTML = photoViewHtml(); bindPhotoView(); };
+  }
+  /* 크게 보기: 전체 화면에서 확대(＋/－, 손가락으로 밀어 이동) — 작은 글씨 문서용 */
+  function openZoom(src) {
+    if (!src) return;
+    let z = 1;
+    const ov = document.createElement('div'); ov.className = 'zoomer';
+    ov.innerHTML = `<div class="zoom-bar"><button type="button" class="ic" data-z="-1">－</button><span class="zv">100%</span><button type="button" class="ic" data-z="1">＋</button><button type="button" class="ic" data-z="0">✕</button></div>
+      <div class="zoom-box"><img src="${src}" alt=""></div>`;
+    document.body.appendChild(ov);
+    const im = ov.querySelector('img'), zv = ov.querySelector('.zv'), zbox = ov.querySelector('.zoom-box');
+    const set = nz => {
+      const cx = (zbox.scrollLeft + zbox.clientWidth / 2) / zbox.scrollWidth, cy = (zbox.scrollTop + zbox.clientHeight / 2) / zbox.scrollHeight;
+      z = Math.max(1, Math.min(5, nz)); im.style.width = (z * 100) + '%'; zv.textContent = Math.round(z * 100) + '%';
+      zbox.scrollLeft = cx * zbox.scrollWidth - zbox.clientWidth / 2; zbox.scrollTop = cy * zbox.scrollHeight - zbox.clientHeight / 2;
+    };
+    const close = () => { ov.remove(); window.removeEventListener('popstate', close); };
+    ov.querySelectorAll('[data-z]').forEach(b => b.onclick = () => { const d = +b.dataset.z; if (!d) { history.back(); } else set(z + d * 0.5); });
+    history.pushState({ zoom: 1 }, '');   // 휴대폰 뒤로 가기 = 닫기
+    window.addEventListener('popstate', close);
+    set(2);
   }
   function drawPhotoView() { const box = $('#pView'); if (box) { box.innerHTML = photoViewHtml(); bindPhotoView(); } }
   const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('image decode failed')); im.src = src; });
@@ -730,6 +774,15 @@
   async function translateLines(lines, sl, tl) {
     if (!lines.length) return [];
     if (sl === tl) return lines.slice();
+    if (lines.join('\n').length > 700) {   // 문서처럼 줄이 많으면 나눠서 보냄(주소 길이 제한)
+      const groups = []; let g = [], n = 0;
+      lines.forEach(l => { if (g.length && n + l.length > 700) { groups.push(g); g = []; n = 0; } g.push(l); n += l.length + 1; });
+      if (g.length) groups.push(g);
+      const res = new Array(groups.length); let gi = 0;
+      const run = async () => { while (gi < groups.length) { const k = gi++; res[k] = await translateLines(groups[k], sl, tl); } };
+      await Promise.all([run(), run()]);
+      return [].concat(...res);
+    }
     const from = sl === 'auto' ? '' : sl;
     try {
       const r = await Translator.translate(lines.join('\n'), from, tl, proxyUrl());
@@ -760,6 +813,7 @@
   async function runOcr(file) {
     const st0 = $('#pStatus'); st0.textContent = t('ocrPrep'); st0.classList.add('busy');
     [SP.img, SP.imgTr].forEach(u => { if (u && u.startsWith('blob:')) URL.revokeObjectURL(u); });   // 이전 사진 메모리 해제
+    resetDoc();
     SP.photo = null; SP.imgTr = null; SP.view = 'tr'; $('#pResult').innerHTML = '';
     const status = txt => { const el = $('#pStatus'); if (el) el.textContent = txt; };
     try {
@@ -795,6 +849,60 @@
       status('');
       toast(t('ocrFail', { m: (e && e.message) || e }), 'err');
     } finally { const el = $('#pStatus'); if (el) el.classList.remove('busy'); }
+  }
+  /* ---------- 문서(PDF) 번역: 쪽마다 글자 정보로 번역해 같은 자리에 표시, 전체를 번역 PDF로 저장 ---------- */
+  function resetDoc() {
+    (SP.pages || []).forEach(p => [p.img, p.imgTr].forEach(u => { if (u && u.startsWith('blob:')) URL.revokeObjectURL(u); }));
+    SP.pages = null; SP.page = 0; SP.docDone = false; SP.docTotal = 0; SP.docName = ''; SP.docRun = (SP.docRun || 0) + 1;
+  }
+  function showPage(i) {
+    const P = SP.pages; if (!P || i < 0 || i >= P.length) return;
+    SP.page = i; SP.img = P[i].img; SP.imgTr = P[i].imgTr; SP.photo = P[i].lines;
+    drawPhotoView(); const r = $('#pResult'); if (r) r.innerHTML = ''; drawPhotoResult();
+  }
+  async function runPdf(file) {
+    const st0 = $('#pStatus'); st0.textContent = t('docOpen'); st0.classList.add('busy');
+    [SP.img, SP.imgTr].forEach(u => { if (u && u.startsWith('blob:')) URL.revokeObjectURL(u); });
+    resetDoc();
+    const run = SP.docRun;
+    SP.photo = null; SP.img = ''; SP.imgTr = null; SP.view = 'tr'; $('#pResult').innerHTML = ''; drawPhotoView();
+    const status = txt => { const el = $('#pStatus'); if (el && SP.docRun === run) el.textContent = txt; };
+    const live = () => SP.docRun === run;
+    const toUrl = cv => new Promise(r => cv.toBlob(b => r(b ? URL.createObjectURL(b) : cv.toDataURL('image/png')), 'image/png'));
+    try {
+      const { doc, pages, total } = await PDFDOC.open(file);
+      if (!live()) return;
+      SP.pages = []; SP.docTotal = pages; SP.docName = file.name || 'document.pdf';
+      if (total > pages) toast(t('docMax', { n: pages }));
+      const sl = SP.psl, tl = SP.ptl;
+      SP.photoTl = tl; SP.photoSl = sl;
+      let sum = 0;
+      for (let n = 1; n <= pages; n++) {
+        status(t('docPage', { n, t: pages }));
+        const { canvas, segs: s0 } = await PDFDOC.page(doc, n);
+        if (!live()) return;
+        let segs = s0;
+        if (segs.filter(x => !x.keep).length < 2) {   // 글자 정보가 없는 스캔 문서 → 그림에서 글자 인식
+          try { segs = await OCR.recognize(canvas.toDataURL('image/jpeg', 0.92), sl, L().target, () => {}); } catch (e) { segs = []; }
+          if (!live()) return;
+        }
+        const todo = segs.filter(x => !x.keep);
+        const dst = await translateLines(todo.map(x => x.src), sl, tl);
+        if (!live()) return;
+        todo.forEach((x, k) => { x.dst = dst[k]; });
+        const img = await toUrl(canvas);
+        const imgTr = todo.length ? await toUrl(OCR.paint(canvas, segs, canvas.width)) : null;
+        SP.pages.push({ img, imgTr, lines: todo.map(x => ({ src: x.src, dst: x.dst || '', saved: false })) });
+        sum += todo.length;
+        if (n === 1 || SP.page === n - 1) showPage(SP.page); else drawPhotoView();   // 첫 쪽은 바로 보여 주고 나머지는 뒤에서 계속
+      }
+      SP.docDone = true;
+      status(t('docDone', { p: pages, n: sum }));
+      drawPhotoView();
+    } catch (e) {
+      status('');
+      toast(t('ocrFail', { m: (e && e.message) || e }), 'err');
+    } finally { const el = $('#pStatus'); if (el && live()) el.classList.remove('busy'); }
   }
   /* 예비 경로: 사진을 서버(구글 드라이브)에서 읽어 줄별 목록으로만 표시 */
   async function runOcrServer(dataUrl) {
