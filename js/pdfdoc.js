@@ -39,7 +39,8 @@ const PDFDOC = (() => {
     const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
     const ctx = cv.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
-    await p.render({ canvasContext: ctx, viewport: vp }).promise;
+    // intent 'print': 화면 그리기 타이밍(requestAnimationFrame)에 기대지 않고 바로 그림 → 앱이 잠시 뒤로 가도 멈추지 않음
+    await p.render({ canvasContext: ctx, viewport: vp, intent: 'print' }).promise;
     const tc = await p.getTextContent();
     const items = [];
     tc.items.forEach(it => {
